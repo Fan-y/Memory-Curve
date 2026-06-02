@@ -38,14 +38,14 @@ export class MemoryCurveDB extends Dexie {
 
     const schedule = getReviewSchedule(now)
     const reviews: Review[] = schedule.map((date, i) => ({
-      entryId,
+      entryId: entryId!,
       reviewNumber: i + 1,
       scheduledDate: date,
       completed: false,
       completedAt: null,
     }))
     await this.reviews.bulkAdd(reviews)
-    return entryId
+    return entryId!
   }
 
   async completeReview(reviewId: number) {

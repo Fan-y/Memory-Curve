@@ -54,8 +54,8 @@ export default function AddEntry() {
   return (
     <Box>
       {/* 标题区 */}
-      <Box mb={3}>
-        <Typography variant="h4" fontWeight={700} mb={1}>
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
           添加学习记录
         </Typography>
         <Typography variant="body1" color="text.secondary">
@@ -67,7 +67,7 @@ export default function AddEntry() {
       <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
         {/* 主标题 —— 最重要的字段，用浅色背景突出 */}
         <Box sx={{ px: 4, pt: 4, pb: 3, bgcolor: '#F8FAFC' }}>
-          <Box display="flex" alignItems="center" gap={1} mb={0.75}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.75 }}>
             <Box
               sx={{
                 width: 4,
@@ -76,7 +76,7 @@ export default function AddEntry() {
                 bgcolor: 'primary.main',
               }}
             />
-            <Typography variant="subtitle2" color="text.secondary" fontWeight={700} sx={{ letterSpacing: 0.5 }}>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: 0.5 }}>
               必填
             </Typography>
           </Box>
@@ -103,14 +103,14 @@ export default function AddEntry() {
 
         {/* 来源 + 标签 */}
         <Box sx={{ px: 4, py: 3 }}>
-          <Box display="flex" alignItems="center" gap={1} mb={2}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
             <BookmarkIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
-            <Typography variant="subtitle2" color="text.secondary" fontWeight={700} sx={{ letterSpacing: 0.5 }}>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: 0.5 }}>
               分类信息（可选）
             </Typography>
           </Box>
 
-          <Box display="grid" gridTemplateColumns="1fr 1fr" gap={3}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3 }}>
             <TextField
               label="来源"
               placeholder="书籍 / 视频 / 课程..."
@@ -135,9 +135,9 @@ export default function AddEntry() {
 
         {/* 描述 */}
         <Box sx={{ px: 4, py: 3 }}>
-          <Box display="flex" alignItems="center" gap={1} mb={2}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
             <BookmarkIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
-            <Typography variant="subtitle2" color="text.secondary" fontWeight={700} sx={{ letterSpacing: 0.5 }}>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: 0.5 }}>
               详细描述（可选）
             </Typography>
           </Box>

@@ -32,8 +32,8 @@ export default function Stats() {
   return (
     <Box>
       {/* 头部 */}
-      <Box mb={4}>
-        <Typography variant="h4" fontWeight={700} mb={0.5}>
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
           学习统计
         </Typography>
         <Typography variant="body1" color="text.secondary">
@@ -42,7 +42,7 @@ export default function Stats() {
       </Box>
 
       {/* 总览数字 - 4列 */}
-      <Grid container spacing={3} mb={4}>
+      <Grid container spacing={3} sx={{ mb: 4 }}>
         {[
           { label: '总学习条目', value: stats.totalEntries, color: '#6366F1' },
           { label: '总复习次数', value: stats.totalReviews, color: '#0EA5E9' },
@@ -58,10 +58,10 @@ export default function Stats() {
                 boxShadow: '0px 1px 3px rgba(0,0,0,0.06), 0px 1px 2px rgba(0,0,0,0.04)',
               }}
             >
-              <Typography variant="h3" fontWeight={700} color={s.color}>
+              <Typography variant="h3" sx={{ fontWeight: 700 }} color={s.color}>
                 {s.value}
               </Typography>
-              <Typography variant="body1" fontWeight={600} color="text.secondary" mt={0.5}>
+              <Typography variant="body1" sx={{ fontWeight: 600, mt: 0.5 }} color="text.secondary">
                 {s.label}
               </Typography>
             </Paper>
@@ -70,34 +70,34 @@ export default function Stats() {
       </Grid>
 
       {/* 今日 + 总体 双栏 */}
-      <Grid container spacing={3} mb={4}>
+      <Grid container spacing={3} sx={{ mb: 4 }}>
         {/* 今日概况 */}
         <Grid size={{ xs: 12, md: 6 }}>
           <Paper sx={{ p: 3, borderRadius: 2, boxShadow: '0px 1px 3px rgba(0,0,0,0.06), 0px 1px 2px rgba(0,0,0,0.04)' }}>
-            <Typography variant="h6" fontWeight={700} mb={2.5}>
+            <Typography variant="h6" sx={{ fontWeight: 700, mb: 2.5 }}>
               今日概况
             </Typography>
 
-            <Box display="grid" gridTemplateColumns="repeat(3, 1fr)" gap={2} mb={3}>
-              <Box textAlign="center">
-                <Typography variant="h4" fontWeight={700}>{stats.todayCount}</Typography>
-                <Typography variant="body2" color="text.disabled" mt={0.5}>待复习</Typography>
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2, mb: 3 }}>
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography variant="h4" sx={{ fontWeight: 700 }}>{stats.todayCount}</Typography>
+                <Typography variant="body2" color="text.disabled" sx={{ mt: 0.5 }}>待复习</Typography>
               </Box>
-              <Box textAlign="center">
-                <Typography variant="h4" fontWeight={700} color="success.main">{stats.todayDone}</Typography>
-                <Typography variant="body2" color="text.disabled" mt={0.5}>已完成</Typography>
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography variant="h4" sx={{ fontWeight: 700 }} color="success.main">{stats.todayDone}</Typography>
+                <Typography variant="body2" color="text.disabled" sx={{ mt: 0.5 }}>已完成</Typography>
               </Box>
-              <Box textAlign="center">
-                <Typography variant="h4" fontWeight={700} color={stats.overdueCount > 0 ? 'warning.main' : 'text.primary'}>
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography variant="h4" sx={{ fontWeight: 700 }} color={stats.overdueCount > 0 ? 'warning.main' : 'text.primary'}>
                   {stats.overdueCount}
                 </Typography>
-                <Typography variant="body2" color="text.disabled" mt={0.5}>逾期</Typography>
+                <Typography variant="body2" color="text.disabled" sx={{ mt: 0.5 }}>逾期</Typography>
               </Box>
             </Box>
 
-            <Box display="flex" justifyContent="space-between" mb={1}>
-              <Typography variant="body1" fontWeight={500} color="text.secondary">今日进度</Typography>
-              <Typography variant="body1" fontWeight={700} color="primary">{todayProgress}%</Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+              <Typography variant="body1" sx={{ fontWeight: 500 }} color="text.secondary">今日进度</Typography>
+              <Typography variant="body1" sx={{ fontWeight: 700 }} color="primary">{todayProgress}%</Typography>
             </Box>
             <LinearProgress
               variant="determinate"
@@ -110,29 +110,29 @@ export default function Stats() {
         {/* 总体进度 */}
         <Grid size={{ xs: 12, md: 6 }}>
           <Paper sx={{ p: 3, borderRadius: 2, boxShadow: '0px 1px 3px rgba(0,0,0,0.06), 0px 1px 2px rgba(0,0,0,0.04)' }}>
-            <Typography variant="h6" fontWeight={700} mb={2.5}>
+            <Typography variant="h6" sx={{ fontWeight: 700, mb: 2.5 }}>
               总体进度
             </Typography>
 
-            <Box textAlign="center" mb={2.5}>
-              <Typography variant="h2" fontWeight={700} color="primary">
+            <Box sx={{ textAlign: 'center', mb: 2.5 }}>
+              <Typography variant="h2" sx={{ fontWeight: 700 }} color="primary">
                 {stats.completionRate}%
               </Typography>
               <Typography variant="body1" color="text.disabled">总复习完成率</Typography>
             </Box>
 
-            <Box display="grid" gridTemplateColumns="repeat(2, 1fr)" gap={2} textAlign="center">
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 2, textAlign: 'center' }}>
               <Box>
-                <Typography variant="h5" fontWeight={700} color="success.main">
+                <Typography variant="h5" sx={{ fontWeight: 700 }} color="success.main">
                   {stats.completedReviews}
                 </Typography>
-                <Typography variant="body2" color="text.disabled" mt={0.5}>已完成</Typography>
+                <Typography variant="body2" color="text.disabled" sx={{ mt: 0.5 }}>已完成</Typography>
               </Box>
               <Box>
-                <Typography variant="h5" fontWeight={700} color="text.secondary">
+                <Typography variant="h5" sx={{ fontWeight: 700 }} color="text.secondary">
                   {stats.totalReviews - stats.completedReviews}
                 </Typography>
-                <Typography variant="body2" color="text.disabled" mt={0.5}>待完成</Typography>
+                <Typography variant="body2" color="text.disabled" sx={{ mt: 0.5 }}>待完成</Typography>
               </Box>
             </Box>
           </Paper>
@@ -149,13 +149,13 @@ export default function Stats() {
           boxShadow: '0px 1px 3px rgba(0,0,0,0.06), 0px 1px 2px rgba(0,0,0,0.04)',
         }}
       >
-        <Typography variant="h6" fontWeight={700} mb={1}>
+        <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
           即将到来的复习
         </Typography>
-        <Typography variant="h2" fontWeight={700} color="primary">
+        <Typography variant="h2" sx={{ fontWeight: 700 }} color="primary">
           {stats.upcomingCount}
         </Typography>
-        <Typography variant="body1" color="text.secondary" mt={0.5}>
+        <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>
           未来还有 {stats.upcomingCount} 项复习任务等待你完成
         </Typography>
       </Paper>

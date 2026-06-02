@@ -46,9 +46,9 @@ export default function Dashboard() {
   return (
     <Box>
       {/* 头部 */}
-      <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={4}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 4 }}>
         <Box>
-          <Typography variant="h4" fontWeight={700} mb={0.5}>
+          <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
             仪表盘
           </Typography>
           <Typography variant="body1" color="text.secondary">
@@ -63,7 +63,7 @@ export default function Dashboard() {
       </Box>
 
       {/* 统计卡片 */}
-      <Box display="grid" gridTemplateColumns="repeat(4, 1fr)" gap={3} mb={4}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 3, mb: 4 }}>
         <StatsCard label="今日复习" value={stats.todayCount} subtitle={`${stats.todayDone} 已完成`} />
         <StatsCard label="逾期任务" value={stats.overdueCount} subtitle="尽快补上" color="#F59E0B" />
         <StatsCard label="完成率" value={`${stats.completionRate}%`} subtitle="总复习进度" color="#10B981" />
@@ -102,7 +102,7 @@ export default function Dashboard() {
             !
           </Box>
           <Box>
-            <Typography variant="body1" fontWeight={600} color="warning.dark">
+            <Typography variant="body1" sx={{ fontWeight: 600 }} color="warning.dark">
               你有 {overdue.length} 条逾期未完成的复习
             </Typography>
             <Typography variant="body2" color="warning.dark" sx={{ opacity: 0.8 }}>
@@ -127,10 +127,10 @@ export default function Dashboard() {
             borderRadius: 2,
           }}
         >
-          <Typography variant="h6" color="text.disabled" mb={1}>
+          <Typography variant="h6" color="text.disabled" sx={{ mb: 1 }}>
             {tab === 0 ? '今天没有复习任务' : '没有逾期任务'}
           </Typography>
-          <Typography variant="body2" color="text.disabled" mb={3}>
+          <Typography variant="body2" color="text.disabled" sx={{ mb: 3 }}>
             {tab === 0 ? '去学习新知识，系统会自动安排复习' : '继续保持！'}
           </Typography>
           {tab === 0 && (
@@ -140,7 +140,7 @@ export default function Dashboard() {
           )}
         </Paper>
       ) : (
-        <Box display="flex" flexDirection="column" gap={1.5}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
           {list.map((r) => <ReviewCard key={r.id} review={r} onComplete={handleComplete} />)}
         </Box>
       )}

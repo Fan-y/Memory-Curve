@@ -28,7 +28,7 @@ export default function ReviewCard({ review, onComplete }: Props) {
       }}
     >
       <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
-        <Box display="flex" alignItems="center" gap={2}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <IconButton
             onClick={() => onComplete(review.id!)}
             sx={{
@@ -40,12 +40,12 @@ export default function ReviewCard({ review, onComplete }: Props) {
             {review.completed ? <CheckCircleIcon /> : <RadioButtonUncheckedIcon />}
           </IconButton>
 
-          <Box flex={1} minWidth={0}>
-            <Typography variant="subtitle1" fontWeight={600} noWrap>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600 }} noWrap>
               {review.entry.title}
             </Typography>
             {review.entry.tags.length > 0 && (
-              <Box display="flex" gap={0.5} flexWrap="wrap" mt={0.5}>
+              <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
                 {review.entry.tags.map((tag) => (
                   <Chip key={tag} label={tag} size="small" variant="outlined" />
                 ))}
@@ -53,8 +53,8 @@ export default function ReviewCard({ review, onComplete }: Props) {
             )}
           </Box>
 
-          <Box textAlign="right" minWidth={140}>
-            <Typography variant="body2" fontWeight={600} color="primary">
+          <Box sx={{ textAlign: 'right', minWidth: 140 }}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }} color="primary">
               第 {review.reviewNumber}/6 次
             </Typography>
             <Typography variant="caption" color="text.disabled">
@@ -63,9 +63,9 @@ export default function ReviewCard({ review, onComplete }: Props) {
           </Box>
 
           <Box sx={{ width: 120 }}>
-            <Box display="flex" justifyContent="space-between" mb={0.5}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
               <Typography variant="caption" color="text.disabled">进度</Typography>
-              <Typography variant="caption" fontWeight={600} color="primary">
+              <Typography variant="caption" sx={{ fontWeight: 600 }} color="primary">
                 {Math.round((review.reviewNumber / 6) * 100)}%
               </Typography>
             </Box>

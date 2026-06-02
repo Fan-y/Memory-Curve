@@ -35,8 +35,8 @@ export default function History() {
   return (
     <Box>
       {/* 头部 */}
-      <Box mb={4}>
-        <Typography variant="h4" fontWeight={700} mb={0.5}>
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
           历史记录
         </Typography>
         <Typography variant="body1" color="text.secondary">
@@ -46,7 +46,7 @@ export default function History() {
 
       {data.length === 0 ? (
         <Paper sx={{ textAlign: 'center', py: 10, borderRadius: 2 }}>
-          <Typography variant="h6" color="text.disabled" mb={1}>
+          <Typography variant="h6" color="text.disabled" sx={{ mb: 1 }}>
             还没有学习记录
           </Typography>
           <Typography variant="body2" color="text.disabled">
@@ -54,7 +54,7 @@ export default function History() {
           </Typography>
         </Paper>
       ) : (
-        <Box display="flex" flexDirection="column" gap={1.5}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
           {data.map((entry) => {
             const done = entry.reviews.filter((r) => r.completed).length
             const total = entry.reviews.length
@@ -63,12 +63,12 @@ export default function History() {
             return (
               <Accordion key={entry.id} sx={{ borderRadius: 2 }}>
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Box flex={1} minWidth={0} display="flex" alignItems="center" gap={2}>
-                    <Box flex={1} minWidth={0}>
-                      <Typography variant="subtitle1" fontWeight={600} noWrap>
+                  <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 600 }} noWrap>
                         {entry.title}
                       </Typography>
-                      <Box display="flex" gap={1} alignItems="center" mt={0.25}>
+                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 0.25 }}>
                         <Typography variant="body2" color="text.disabled">
                           {formatDateFull(entry.createdAt)}
                         </Typography>
@@ -79,9 +79,9 @@ export default function History() {
                       </Box>
                     </Box>
                     <Box sx={{ width: 160 }}>
-                      <Box display="flex" justifyContent="space-between" mb={0.5}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                         <Typography variant="caption" color="text.disabled">复习进度</Typography>
-                        <Typography variant="caption" fontWeight={600} color={progress === 100 ? 'success.main' : 'primary'}>
+                        <Typography variant="caption" sx={{ fontWeight: 600 }} color={progress === 100 ? 'success.main' : 'primary'}>
                           {Math.round(progress)}%
                         </Typography>
                       </Box>
@@ -99,30 +99,29 @@ export default function History() {
                     <Typography
                       variant="body1"
                       color="text.secondary"
-                      mb={2}
-                      sx={{ whiteSpace: 'pre-wrap' }}
+                      sx={{ mb: 2, whiteSpace: 'pre-wrap' }}
                     >
                       {entry.description}
                     </Typography>
                   )}
 
                   {entry.source && (
-                    <Typography variant="body2" color="text.disabled" mb={2}>
+                    <Typography variant="body2" color="text.disabled" sx={{ mb: 2 }}>
                       来源：{entry.source}
                     </Typography>
                   )}
 
                   {entry.tags.length > 0 && (
-                    <Box display="flex" gap={0.5} flexWrap="wrap" mb={2.5}>
+                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 2.5 }}>
                       {entry.tags.map((tag) => (
                         <Chip key={tag} label={tag} size="small" variant="outlined" />
                       ))}
                     </Box>
                   )}
 
-                  <Typography variant="subtitle1" fontWeight={600} mb={2}>复习安排</Typography>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>复习安排</Typography>
 
-                  <Box display="grid" gridTemplateColumns="repeat(3, 1fr)" gap={1.5}>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1.5 }}>
                     {entry.reviews.map((r) => (
                       <Paper
                         key={r.id}
@@ -153,7 +152,7 @@ export default function History() {
                           {r.completed ? <CheckCircleIcon /> : <RadioButtonUncheckedIcon />}
                         </IconButton>
                         <Box>
-                          <Typography variant="body1" fontWeight={600}>
+                          <Typography variant="body1" sx={{ fontWeight: 600 }}>
                             第 {r.reviewNumber} 次
                           </Typography>
                           <Typography variant="body2" color="text.disabled">

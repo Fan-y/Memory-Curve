@@ -62,10 +62,10 @@ export default function Layout() {
             <PsychologyIcon />
           </Box>
           <Box>
-            <Typography variant="subtitle1" fontWeight={800} color="text.primary" lineHeight={1.2}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.2 }} color="text.primary">
               Memory Curve
             </Typography>
-            <Typography variant="caption" color="text.disabled" fontWeight={500}>
+            <Typography variant="caption" color="text.disabled" sx={{ fontWeight: 500 }}>
               记忆曲线复习
             </Typography>
           </Box>
@@ -106,8 +106,7 @@ export default function Layout() {
                 </Box>
                 <Typography
                   variant="body2"
-                  fontWeight={active ? 700 : 500}
-                  fontSize="0.875rem"
+                  sx={{ fontWeight: active ? 700 : 500, fontSize: '0.875rem' }}
                 >
                   {item.label}
                 </Typography>
@@ -137,7 +136,7 @@ export default function Layout() {
               textAlign: 'center',
             }}
           >
-            <Typography variant="caption" color="text.secondary" fontWeight={500}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
               今日事 · 今日毕
             </Typography>
           </Box>

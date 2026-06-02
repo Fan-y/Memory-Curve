@@ -17,10 +17,10 @@ export default function StatsCard({ label, value, color, subtitle }: Props) {
         boxShadow: '0px 1px 3px rgba(0,0,0,0.06), 0px 1px 2px rgba(0,0,0,0.04)',
       }}
     >
-      <Typography variant="h4" fontWeight={700} color={color ?? 'text.primary'}>
+      <Typography variant="h4" sx={{ fontWeight: 700 }} color={color ?? 'text.primary'}>
         {value}
       </Typography>
-      <Typography variant="body2" fontWeight={600} color="text.secondary" mt={0.25}>
+      <Typography variant="body2" sx={{ fontWeight: 600, mt: 0.25 }} color="text.secondary">
         {label}
       </Typography>
       {subtitle && (

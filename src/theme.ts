@@ -1,4 +1,4 @@
-import { createTheme } from '@mui/material/styles'
+import { createTheme, type Shadows } from '@mui/material/styles'
 
 const theme = createTheme({
   palette: {
@@ -65,8 +65,10 @@ const theme = createTheme({
     '0px 6px 16px rgba(0,0,0,0.06), 0px 4px 12px rgba(0,0,0,0.06)',
     '0px 8px 24px rgba(0,0,0,0.08), 0px 4px 16px rgba(0,0,0,0.06)',
     '0px 12px 32px rgba(0,0,0,0.10), 0px 6px 20px rgba(0,0,0,0.06)',
-    ...Array(18).fill('none'),
-  ],
+    'none', 'none', 'none', 'none', 'none', 'none',
+    'none', 'none', 'none', 'none', 'none', 'none',
+    'none', 'none', 'none', 'none', 'none', 'none',
+  ] as Shadows,
 
   components: {
     MuiCssBaseline: {

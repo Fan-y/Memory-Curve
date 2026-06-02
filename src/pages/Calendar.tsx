@@ -64,8 +64,8 @@ export default function Calendar() {
   return (
     <Box>
       {/* 头部 */}
-      <Box mb={4}>
-        <Typography variant="h4" fontWeight={700} mb={0.5}>
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
           复习日历
         </Typography>
         <Typography variant="body1" color="text.secondary">
@@ -76,11 +76,11 @@ export default function Calendar() {
       {/* 日历主体 */}
       <Paper sx={{ p: 4, borderRadius: 2 }}>
         {/* 月份导航 */}
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <IconButton size="large" onClick={() => changeMonth(-1)} sx={{ color: 'text.secondary' }}>
             <ChevronLeftIcon fontSize="large" />
           </IconButton>
-          <Typography variant="h5" fontWeight={700}>
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>
             {monthLabel}
           </Typography>
           <IconButton size="large" onClick={() => changeMonth(1)} sx={{ color: 'text.secondary' }}>
@@ -99,7 +99,7 @@ export default function Calendar() {
         >
           {['日', '一', '二', '三', '四', '五', '六'].map((d) => (
             <Box key={d} sx={{ textAlign: 'center', py: 0.75 }}>
-              <Typography variant="body1" color="text.disabled" fontWeight={600}>
+              <Typography variant="body1" color="text.disabled" sx={{ fontWeight: 600 }}>
                 {d}
               </Typography>
             </Box>
@@ -163,15 +163,14 @@ export default function Calendar() {
                     },
                   }}
                 >
-                  <Typography variant="body1" fontWeight="inherit">
+                  <Typography variant="body1" sx={{ fontWeight: 'inherit' }}>
                     {day}
                   </Typography>
                   {hasReviews && (
                     <Typography
                       variant="caption"
-                      fontWeight={600}
                       color={today ? 'inherit' : 'text.secondary'}
-                      sx={{ opacity: today ? 0.9 : 0.7, mt: 0.25 }}
+                      sx={{ fontWeight: 600, opacity: today ? 0.9 : 0.7, mt: 0.25 }}
                     >
                       {info!.completed}/{info!.total}
                     </Typography>
@@ -194,40 +193,40 @@ export default function Calendar() {
         onClose={() => setSelectedDate(null)}
         fullWidth
         maxWidth="sm"
-        PaperProps={{ sx: { borderRadius: 3, p: 1 } }}
+        slotProps={{ paper: { sx: { borderRadius: 3, p: 1 } } }}
       >
         <DialogTitle>
-          <Typography variant="h6" fontWeight={700}>
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>
             {selectedDate ? formatDateFull(selectedDate) : ''}
-            <Typography component="span" variant="h6" color="text.secondary" fontWeight={400}>
+            <Typography component="span" variant="h6" color="text.secondary" sx={{ fontWeight: 400 }}>
               {' '}的复习
             </Typography>
           </Typography>
         </DialogTitle>
         <DialogContent>
           {selectedEntries.length === 0 ? (
-            <Box textAlign="center" py={4}>
+            <Box sx={{ textAlign: 'center', py: 4 }}>
               <Typography color="text.disabled">当天没有复习安排</Typography>
             </Box>
           ) : (
-            <Box display="flex" flexDirection="column" gap={1.5}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               {selectedEntries.map((entry) => (
                 <Paper
                   key={entry.id}
                   variant="outlined"
                   sx={{ p: 2.5, borderRadius: 2, borderColor: 'divider' }}
                 >
-                  <Typography variant="subtitle1" fontWeight={600} mb={1}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
                     {entry.title}
                   </Typography>
                   {entry.tags.length > 0 && (
-                    <Box display="flex" gap={0.5} mb={1.5}>
+                    <Box sx={{ display: 'flex', gap: 0.5, mb: 1.5 }}>
                       {entry.tags.map((tag) => (
                         <Chip key={tag} label={tag} size="small" variant="outlined" />
                       ))}
                     </Box>
                   )}
-                  <Box display="flex" gap={0.75} flexWrap="wrap">
+                  <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
                     {entry.reviews.map((r) => (
                       <Chip
                         key={r.id}
