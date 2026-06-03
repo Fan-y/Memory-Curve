@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   getCompletedReviewsByRange,
   getReviewsByScheduledRange,
-  getReviewStats,
+  getReviewAggregates,
   type ReviewRow,
   type ReviewStats,
 } from "@/lib/api/reviews";
@@ -111,19 +111,19 @@ export default function StatsPage() {
       const todayStart = startOfDay(today);
 
       const [
-        statsResult,
+        aggResult,
         scheduledResult,
         completedResult,
         upcomingResult,
       ] = await Promise.all([
-        getReviewStats(user.id),
+        getReviewAggregates(user.id),
         getReviewsByScheduledRange(user.id, start35.toISOString(), endToday.toISOString()),
         getCompletedReviewsByRange(user.id, start35.toISOString(), endToday.toISOString()),
         getReviewsByScheduledRange(user.id, todayStart.toISOString(), futureEnd.toISOString()),
       ]);
 
       const firstError =
-        statsResult.error ??
+        aggResult.error ??
         scheduledResult.error ??
         completedResult.error ??
         upcomingResult.error;
@@ -133,7 +133,26 @@ export default function StatsPage() {
         return;
       }
 
-      setStats(statsResult.data);
+      const scheduledReviews = scheduledResult.data ?? [];
+      const agg = aggResult.data;
+      const todayKey = toDateKey(today);
+
+      let dueToday = 0;
+      let overdue = 0;
+      for (const r of scheduledReviews) {
+        if (r.completed_at) continue;
+        const key = toDateKey(r.scheduled_date);
+        if (key === todayKey) dueToday += 1;
+        else if (key < todayKey) overdue += 1;
+      }
+
+      setStats({
+        total: agg?.total ?? 0,
+        dueToday,
+        overdue,
+        completed: agg?.completed ?? 0,
+        totalDurationMs: agg?.totalDurationMs ?? 0,
+      });
       setScheduledWindowReviews(scheduledResult.data ?? []);
       setCompletedWindowReviews(completedResult.data ?? []);
       setUpcomingReviews(upcomingResult.data ?? []);
@@ -227,7 +246,7 @@ export default function StatsPage() {
     const cards = upcomingReviews.filter((review) => (review.stability ?? 0) > 0);
 
     if (cards.length === 0) {
-      return Array.from({ length: 15 }, (_, day) => ({ day, retention: 0 }));
+      return [];
     }
 
     return Array.from({ length: 15 }, (_, day) => {
@@ -385,8 +404,13 @@ export default function StatsPage() {
         <h3 className="text-lg font-medium">{t("statsSectionCurve")}</h3>
         <p className="text-xs text-muted-foreground">{t("statsCurveHint")}</p>
 
-        <div className="rounded-lg border bg-background p-3">
-          <svg viewBox="0 0 100 100" className="h-44 w-full">
+        <div className="rounded-lg border bg-background px-4 py-5">
+          {forgettingCurvePoints.length === 0 ? (
+            <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
+              {t("statsCurveEmpty")}
+            </div>
+          ) : (
+            <svg viewBox="0 0 100 115" className="h-64 w-full">
             <defs>
               <linearGradient id="curveFill" x1="0" x2="0" y1="0" y2="1">
                 <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.35" />
@@ -399,8 +423,8 @@ export default function StatsPage() {
               x2="100"
               y2="90"
               stroke="hsl(var(--muted-foreground))"
-              strokeOpacity="0.45"
-              strokeWidth="0.4"
+              strokeOpacity="0.35"
+              strokeWidth="0.6"
             />
             <line
               x1="0"
@@ -408,7 +432,7 @@ export default function StatsPage() {
               x2="100"
               y2="50"
               stroke="hsl(var(--border))"
-              strokeWidth="0.3"
+              strokeWidth="0.5"
             />
             <line
               x1="0"
@@ -416,7 +440,7 @@ export default function StatsPage() {
               x2="100"
               y2="10"
               stroke="hsl(var(--border))"
-              strokeWidth="0.3"
+              strokeWidth="0.5"
             />
 
             {forgettingCurvePath ? (
@@ -430,11 +454,22 @@ export default function StatsPage() {
                   d={forgettingCurvePath}
                   fill="none"
                   stroke="hsl(var(--primary))"
-                  strokeWidth="1.2"
+                  strokeWidth="1.8"
                 />
               </>
             ) : null}
+
+            <text x="0" y="109" fill="hsl(var(--muted-foreground))" fontSize="3" textAnchor="middle">0d</text>
+            <text x="21" y="109" fill="hsl(var(--muted-foreground))" fontSize="3" textAnchor="middle">3d</text>
+            <text x="50" y="109" fill="hsl(var(--muted-foreground))" fontSize="3" textAnchor="middle">7d</text>
+            <text x="71" y="109" fill="hsl(var(--muted-foreground))" fontSize="3" textAnchor="middle">10d</text>
+            <text x="99" y="109" fill="hsl(var(--muted-foreground))" fontSize="3" textAnchor="middle">14d</text>
+
+            <text x="-3" y="11" fill="hsl(var(--muted-foreground))" fontSize="3" textAnchor="end">100%</text>
+            <text x="-3" y="52" fill="hsl(var(--muted-foreground))" fontSize="3" textAnchor="end">50%</text>
+            <text x="-3" y="93" fill="hsl(var(--muted-foreground))" fontSize="3" textAnchor="end">0%</text>
           </svg>
+          )}
         </div>
 
         <div className="grid gap-2 sm:grid-cols-3">

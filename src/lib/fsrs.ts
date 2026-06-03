@@ -94,7 +94,7 @@ export function reviewToFsrsCard(review: Review): Card {
 }
 
 export class FsrsScheduler {
-  private readonly scheduler: IFSRS;
+  readonly scheduler: IFSRS;
 
   constructor(userParams?: Partial<FSRSParameters>) {
     this.scheduler = initScheduler(userParams);

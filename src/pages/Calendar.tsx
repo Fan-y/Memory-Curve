@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { getUserEntries } from "@/lib/api/entries";
 import { getReviewsByScheduledRange, type ReviewRow } from "@/lib/api/reviews";
 import { cn } from "@/lib/utils";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useI18n } from "@/hooks/useI18n";
 import { useAuthStore } from "@/stores/authStore";
+import { useEntryCacheStore } from "@/stores/entryCacheStore";
 
 type CalendarCell = {
   date: Date;
@@ -72,6 +72,7 @@ export default function CalendarPage() {
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [selectedDateKey, setSelectedDateKey] = useState(() => toDateKey(new Date()));
+  const [pulsingKey, setPulsingKey] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -127,20 +128,24 @@ export default function CalendarPage() {
       setError(null);
 
       const { start, end } = getCalendarRange(monthCursor);
-      const [reviewsResult, entriesResult] = await Promise.all([
+      const [reviewsResult] = await Promise.all([
         getReviewsByScheduledRange(user.id, start.toISOString(), end.toISOString()),
-        getUserEntries(user.id),
+        useEntryCacheStore.getState().fetch(user.id, true),
       ]);
 
-      if (reviewsResult.error || entriesResult.error) {
+      if (reviewsResult.error) {
         setLoading(false);
-        setError(reviewsResult.error ?? entriesResult.error ?? "日历数据加载失败。");
+        setError(reviewsResult.error);
         return;
       }
 
+      const entriesForTitles = useEntryCacheStore.getState().entries;
+
       const nextTitles: Record<string, string> = {};
-      for (const entry of entriesResult.data ?? []) {
-        nextTitles[entry.id] = entry.title;
+      if (entriesForTitles) {
+        for (const entry of entriesForTitles) {
+          nextTitles[entry.id] = entry.title;
+        }
       }
 
       setReviews(reviewsResult.data ?? []);
@@ -202,11 +207,22 @@ export default function CalendarPage() {
                 key={cell.key}
                 aria-label={ariaLabel}
                 className={cn(
-                  "flex min-h-20 flex-col items-start justify-between rounded-lg border p-2.5 text-left text-sm transition",
-                  cell.inCurrentMonth ? "bg-background" : "bg-muted/40 text-muted-foreground",
-                  isSelected ? "border-primary ring-2 ring-primary/40" : "hover:bg-muted"
+                  "flex min-h-20 flex-col items-start justify-between rounded-lg p-2.5 text-left text-sm transition",
+                  cell.inCurrentMonth
+                    ? "border bg-background"
+                    : "border-transparent bg-muted/15 text-muted-foreground/40",
+                  cell.inCurrentMonth
+                    ? isSelected
+                      ? "border-primary ring-2 ring-primary/40"
+                      : "hover:bg-muted"
+                    : "",
+                  pulsingKey === cell.key ? "animate-pulse" : ""
                 )}
-                onClick={() => setSelectedDateKey(cell.key)}
+                onClick={() => {
+                  setSelectedDateKey(cell.key);
+                  setPulsingKey(cell.key);
+                  setTimeout(() => setPulsingKey(null), 400);
+                }}
                 type="button"
               >
                 <span className="text-sm font-medium">{cell.date.getDate()}</span>
@@ -214,9 +230,7 @@ export default function CalendarPage() {
                   <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
                     {locale === "zh-CN" ? `${count} 项` : `${count} tasks`}
                   </span>
-                ) : (
-                  <span className="text-xs text-muted-foreground">{t("calendarNoTask")}</span>
-                )}
+                ) : null}
               </button>
             );
           })}

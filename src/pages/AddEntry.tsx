@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useI18n } from "@/hooks/useI18n";
 import { useAuthStore } from "@/stores/authStore";
 import { useReviewStore } from "@/stores/reviewStore";
+import { useToastStore } from "@/stores/toastStore";
 
 export default function AddEntry() {
   const { t } = useI18n();
@@ -20,6 +22,7 @@ export default function AddEntry() {
   const createInitialReviewForEntry = useReviewStore(
     (state) => state.createInitialReviewForEntry
   );
+  const addToast = useToastStore((state) => state.addToast);
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -112,6 +115,7 @@ export default function AddEntry() {
     });
     setSelectedTagIds((current) => [...current, createdTag.id]);
     setNewTagName("");
+    addToast(t("tagCreatedToast"));
   };
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -287,6 +291,13 @@ export default function AddEntry() {
                 </p>
               </article>
             ))}
+            {entries.length > 8 ? (
+              <div className="pt-2 text-center">
+                <Link to="/history" className="text-sm text-primary hover:underline">
+                  {t("addEntryViewAll").replace("{count}", String(entries.length))}
+                </Link>
+              </div>
+            ) : null}
           </div>
         )}
       </div>

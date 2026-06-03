@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 
 import ReviewCard from "@/components/ReviewCard";
+import MiniSparkline from "@/components/sparklines/MiniSparkline";
 import TourGuide from "@/components/tour/TourGuide";
-import { getUserEntries } from "@/lib/api/entries";
+import { getCompletedReviewsByRange } from "@/lib/api/reviews";
+import { addDays, endOfDay, startOfDay, toDateKey } from "@/lib/dates";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useI18n } from "@/hooks/useI18n";
 import { useTour } from "@/hooks/useTour";
 import { useAuthStore } from "@/stores/authStore";
 import { useReviewStore } from "@/stores/reviewStore";
+import { useEntryCacheStore } from "@/stores/entryCacheStore";
 import { ReviewRating } from "@/types";
 
 export default function Dashboard() {
@@ -23,8 +26,20 @@ export default function Dashboard() {
     submitReview,
   } = useReviewStore((state) => state);
 
-  const [activeReviewId, setActiveReviewId] = useState<string | null>(null);
+  const [leavingReviewId, setLeavingReviewId] = useState<string | null>(null);
   const [entryTitles, setEntryTitles] = useState<Record<string, string>>({});
+  const [entryContents, setEntryContents] = useState<Record<string, string>>({});
+  const [yesterdayCompleted, setYesterdayCompleted] = useState<number | null>(null);
+  const [recent7Completed, setRecent7Completed] = useState<number[]>([]);
+
+  const sparklineData = useMemo(() => {
+    if (recent7Completed.length === 0) return null;
+    const hasAny = recent7Completed.some((v) => v > 0);
+    if (!hasAny) return null;
+    return recent7Completed;
+  }, [recent7Completed]);
+
+  const entryCache = useEntryCacheStore((s) => s.fetch);
 
   useDocumentTitle(`${t("dashboardTitle")} - Memory Curve`);
 
@@ -35,18 +50,49 @@ export default function Dashboard() {
 
     const load = async () => {
       await refresh(user.id);
+      await entryCache(user.id);
 
-      const entriesResult = await getUserEntries(user.id);
-      if (entriesResult.error) {
-        return;
-      }
-
+      const { entries } = useEntryCacheStore.getState();
       const titleById: Record<string, string> = {};
-      for (const entry of entriesResult.data ?? []) {
-        titleById[entry.id] = entry.title;
+      const contentById: Record<string, string> = {};
+      if (entries) {
+        for (const entry of entries) {
+          titleById[entry.id] = entry.title;
+          if (entry.content_md) {
+            contentById[entry.id] = entry.content_md;
+          }
+        }
       }
-
       setEntryTitles(titleById);
+      setEntryContents(contentById);
+
+      const today = new Date();
+      const days35Start = startOfDay(addDays(today, -34));
+      const days35End = endOfDay(today);
+
+      const completedResult = await getCompletedReviewsByRange(user.id, days35Start.toISOString(), days35End.toISOString());
+
+      if (!completedResult.error) {
+        const yesterday = toDateKey(addDays(today, -1));
+        const countsByDay: Record<string, number> = {};
+        let yesterdayCount = 0;
+        for (const review of completedResult.data ?? []) {
+          if (!review.completed_at) continue;
+          const key = toDateKey(review.completed_at);
+          countsByDay[key] = (countsByDay[key] ?? 0) + 1;
+          if (key === yesterday) {
+            yesterdayCount += 1;
+          }
+        }
+        setYesterdayCompleted(yesterdayCount);
+
+        const daily: number[] = [];
+        for (let offset = 6; offset >= 0; offset -= 1) {
+          const dayKey = toDateKey(addDays(today, -offset));
+          daily.push(countsByDay[dayKey] ?? 0);
+        }
+        setRecent7Completed(daily);
+      }
     };
 
     void load();
@@ -61,14 +107,19 @@ export default function Dashboard() {
     };
   }, [overdueReviews.length, stats?.completed, stats?.total, todayReviews.length]);
 
+  const completedChange = useMemo(() => {
+    if (yesterdayCompleted === null) return null;
+    return (stats?.completed ?? 0) - yesterdayCompleted;
+  }, [stats?.completed, yesterdayCompleted]);
+
   const onRate = async (reviewId: string, rating: ReviewRating) => {
     if (!user) {
       return;
     }
 
-    setActiveReviewId(reviewId);
+    setLeavingReviewId(reviewId);
     await submitReview(reviewId, user.id, rating, 0);
-    setActiveReviewId(null);
+    setLeavingReviewId(null);
   };
 
   const { shouldRun, steps, completeTour, skipTour } = useTour({
@@ -88,18 +139,52 @@ export default function Dashboard() {
         <div className="rounded-xl border bg-card p-4 shadow-sm">
           <p className="text-xs text-muted-foreground">{t("dashboardMetricToday")}</p>
           <p className="mt-2 text-2xl font-semibold">{counts.today}</p>
+          {completedChange !== null ? (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t("dashboardChangeYesterday").replace("{change}", `${completedChange >= 0 ? "+" : ""}${completedChange}`)}
+            </p>
+          ) : (
+            <p className="mt-1 text-xs text-muted-foreground">{t("dashboardChangeNoData")}</p>
+          )}
+          {sparklineData ? (
+            <div className="mt-2">
+              <MiniSparkline data={sparklineData} width={72} height={22} />
+            </div>
+          ) : null}
         </div>
         <div className="rounded-xl border bg-card p-4 shadow-sm">
           <p className="text-xs text-muted-foreground">{t("dashboardMetricOverdue")}</p>
           <p className="mt-2 text-2xl font-semibold">{counts.overdue}</p>
+          {sparklineData ? (
+            <div className="mt-2">
+              <MiniSparkline data={sparklineData} width={72} height={22} />
+            </div>
+          ) : null}
         </div>
         <div className="rounded-xl border bg-card p-4 shadow-sm">
           <p className="text-xs text-muted-foreground">{t("dashboardMetricCompleted")}</p>
           <p className="mt-2 text-2xl font-semibold">{counts.completed}</p>
+          {completedChange !== null ? (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t("dashboardChangeYesterday").replace("{change}", `${completedChange >= 0 ? "+" : ""}${completedChange}`)}
+            </p>
+          ) : (
+            <p className="mt-1 text-xs text-muted-foreground">{t("dashboardChangeNoData")}</p>
+          )}
+          {sparklineData ? (
+            <div className="mt-2">
+              <MiniSparkline data={sparklineData} width={72} height={22} />
+            </div>
+          ) : null}
         </div>
         <div className="rounded-xl border bg-card p-4 shadow-sm">
           <p className="text-xs text-muted-foreground">{t("dashboardMetricTotal")}</p>
           <p className="mt-2 text-2xl font-semibold">{counts.total}</p>
+          {sparklineData ? (
+            <div className="mt-2">
+              <MiniSparkline data={sparklineData} width={72} height={22} />
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -120,7 +205,9 @@ export default function Dashboard() {
                 key={review.id}
                 review={review}
                 entryTitle={entryTitles[review.entry_id]}
-                disabled={loading && activeReviewId === review.id}
+                entryContent={entryContents[review.entry_id]}
+                disabled={leavingReviewId === review.id}
+                leaving={leavingReviewId === review.id}
                 onRate={onRate}
               />
             ))}
@@ -139,7 +226,9 @@ export default function Dashboard() {
                 key={review.id}
                 review={review}
                 entryTitle={entryTitles[review.entry_id]}
-                disabled={loading && activeReviewId === review.id}
+                entryContent={entryContents[review.entry_id]}
+                disabled={leavingReviewId === review.id}
+                leaving={leavingReviewId === review.id}
                 onRate={onRate}
               />
             ))}

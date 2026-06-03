@@ -3,10 +3,9 @@ import { create } from "zustand";
 import {
   completeReview,
   createReview,
-  getOverdueReviews,
+  getPendingReviews,
   getReview,
-  getReviewStats,
-  getTodayReviews,
+  getReviewAggregates,
   type ReviewStats,
 } from "@/lib/api/reviews";
 import {
@@ -116,24 +115,46 @@ export const useReviewStore = create<ReviewStoreState>((set, get) => ({
   refresh: async (userId) => {
     set({ loading: true, error: null });
 
-    const [todayResult, overdueResult, statsResult] = await Promise.all([
-      getTodayReviews(userId),
-      getOverdueReviews(userId),
-      getReviewStats(userId),
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const [pendingResult, aggResult] = await Promise.all([
+      getPendingReviews(userId),
+      getReviewAggregates(userId),
     ]);
 
-    const error = todayResult.error ?? overdueResult.error ?? statsResult.error;
+    const error = pendingResult.error ?? aggResult.error;
     if (error) {
       set({ loading: false, error });
       return apiFailure(error);
     }
 
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const todayReviews: Review[] = [];
+    const overdueReviews: Review[] = [];
+    for (const r of pendingResult.data ?? []) {
+      const key = new Date(r.scheduled_date).toISOString().slice(0, 10);
+      if (key === todayKey) {
+        todayReviews.push(r);
+      } else {
+        overdueReviews.push(r);
+      }
+    }
+
+    const agg = aggResult.data;
+
     set({
       loading: false,
       error: null,
-      todayReviews: todayResult.data ?? [],
-      overdueReviews: overdueResult.data ?? [],
-      stats: statsResult.data,
+      todayReviews,
+      overdueReviews,
+      stats: {
+        total: agg?.total ?? 0,
+        dueToday: todayReviews.length,
+        overdue: overdueReviews.length,
+        completed: agg?.completed ?? 0,
+        totalDurationMs: agg?.totalDurationMs ?? 0,
+      },
     });
 
     return apiSuccess(true);
@@ -215,8 +236,24 @@ export const useReviewStore = create<ReviewStoreState>((set, get) => ({
       return apiFailure(error);
     }
 
-    await get().refresh(userId);
-    set({ loading: false, error: null });
+    const { todayReviews, overdueReviews, stats } = get();
+    const nextToday = todayReviews.filter((r) => r.id !== reviewId);
+    const nextOverdue = overdueReviews.filter((r) => r.id !== reviewId);
+    const nextStats: ReviewStats = {
+      total: (stats?.total ?? 0),
+      dueToday: nextToday.length,
+      overdue: nextOverdue.length,
+      completed: (stats?.completed ?? 0) + 1,
+      totalDurationMs: (stats?.totalDurationMs ?? 0) + durationMs,
+    };
+
+    set({
+      loading: false,
+      error: null,
+      todayReviews: nextToday,
+      overdueReviews: nextOverdue,
+      stats: nextStats,
+    });
 
     return apiSuccess(updatedReview);
   },

@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import ConfirmDialog from "@/components/ConfirmDialog";
 import {
   createEntry,
   deleteEntry,
@@ -54,12 +55,13 @@ export default function History() {
   const [dateEnd, setDateEnd] = useState("");
   const [entries, setEntries] = useState<EntryRow[]>([]);
 
-  const [editingEntry, setEditingEntry] = useState<EntryRow | null>(null);
+  const [expandedEditEntryId, setExpandedEditEntryId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
   const [editSource, setEditSource] = useState("");
   const [saving, setSaving] = useState(false);
   const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<EntryRow | null>(null);
   const [importing, setImporting] = useState(false);
 
   useDocumentTitle(`${t("historyTitle")} - Memory Curve`);
@@ -284,7 +286,7 @@ export default function History() {
   };
 
   const startEdit = (entry: EntryRow) => {
-    setEditingEntry(entry);
+    setExpandedEditEntryId(entry.id);
     setEditTitle(entry.title);
     setEditContent(entry.content_md ?? "");
     setEditSource(entry.source ?? "");
@@ -293,17 +295,17 @@ export default function History() {
   };
 
   const resetEdit = () => {
-    setEditingEntry(null);
+    setExpandedEditEntryId(null);
     setEditTitle("");
     setEditContent("");
     setEditSource("");
     setSaving(false);
   };
 
-  const onSubmitEdit = async (event: FormEvent<HTMLFormElement>) => {
+  const onSubmitEdit = async (event: FormEvent<HTMLFormElement>, entry: EntryRow) => {
     event.preventDefault();
 
-    if (!user || !editingEntry) {
+    if (!user) {
       return;
     }
 
@@ -317,7 +319,7 @@ export default function History() {
     setError(null);
     setMessage(null);
 
-    const result = await updateEntry(editingEntry.id, user.id, {
+    const result = await updateEntry(entry.id, user.id, {
       title: nextTitle,
       content_md: editContent.trim(),
       source: editSource.trim() || null,
@@ -335,25 +337,19 @@ export default function History() {
     await loadEntries(keyword);
   };
 
-  const onDelete = async (entry: EntryRow) => {
-    if (!user) {
-      return;
-    }
+  const onDelete = (entry: EntryRow) => {
+    setDeleteTarget(entry);
+  };
 
-    const confirmed = window.confirm(
-      locale === "zh-CN"
-        ? `${t("historyConfirmDelete")}“${entry.title}”吗？`
-        : `${t("historyConfirmDelete")} "${entry.title}"?`
-    );
-    if (!confirmed) {
-      return;
-    }
+  const confirmDelete = async () => {
+    if (!user || !deleteTarget) return;
 
-    setDeletingEntryId(entry.id);
+    setDeletingEntryId(deleteTarget.id);
     setError(null);
     setMessage(null);
+    setDeleteTarget(null);
 
-    const result = await deleteEntry(entry.id, user.id);
+    const result = await deleteEntry(deleteTarget.id, user.id);
 
     setDeletingEntryId(null);
 
@@ -362,7 +358,7 @@ export default function History() {
       return;
     }
 
-    if (editingEntry?.id === entry.id) {
+    if (expandedEditEntryId === deleteTarget.id) {
       resetEdit();
     }
 
@@ -464,40 +460,6 @@ export default function History() {
         </p>
       ) : null}
 
-      {editingEntry ? (
-        <form className="space-y-3 rounded-xl border bg-card p-4" onSubmit={onSubmitEdit}>
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="text-base font-medium">{t("historyEditTitle")}</h3>
-            <Button type="button" variant="ghost" size="sm" onClick={resetEdit}>
-              {t("historyCancel")}
-            </Button>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-sm font-medium">{t("historyLabelTitle")}</label>
-            <Input value={editTitle} onChange={(event) => setEditTitle(event.target.value)} />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-sm font-medium">{t("historyLabelContent")}</label>
-            <textarea
-              className="min-h-36 w-full rounded-md border border-input bg-card px-3 py-2 text-sm outline-none ring-primary focus:ring-2"
-              value={editContent}
-              onChange={(event) => setEditContent(event.target.value)}
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-sm font-medium">{t("historyLabelSourceOptional")}</label>
-            <Input value={editSource} onChange={(event) => setEditSource(event.target.value)} />
-          </div>
-
-          <Button type="submit" disabled={saving}>
-            {saving ? t("historySaving") : t("historySave")}
-          </Button>
-        </form>
-      ) : null}
-
       <div className="space-y-3">
         <h3 className="text-lg font-medium">
           {t("historyListTitle")} ({filteredEntries.length})
@@ -510,6 +472,8 @@ export default function History() {
         <div className="space-y-3">
           {filteredEntries.map((entry) => {
             const preview = (entry.content_md ?? "").trim();
+
+            const isEditing = expandedEditEntryId === entry.id;
 
             return (
               <article key={entry.id} className="rounded-xl border bg-card p-4">
@@ -541,16 +505,67 @@ export default function History() {
                   </div>
                 </div>
 
-                <p className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">
-                  {preview
-                    ? `${preview.slice(0, 220)}${preview.length > 220 ? "..." : ""}`
-                    : t("historyNoContent")}
-                </p>
+                {isEditing ? (
+                  <form className="mt-3 space-y-3" onSubmit={(event) => { void onSubmitEdit(event, entry); }}>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-medium">{t("historyEditTitle")}</span>
+                      <Button type="button" variant="ghost" size="sm" onClick={resetEdit}>
+                        {t("historyCancel")}
+                      </Button>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium">{t("historyLabelTitle")}</label>
+                      <Input value={editTitle} onChange={(event) => setEditTitle(event.target.value)} />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium">{t("historyLabelContent")}</label>
+                      <textarea
+                        className="min-h-36 w-full rounded-md border border-input bg-card px-3 py-2 text-sm outline-none ring-primary focus:ring-2"
+                        value={editContent}
+                        onChange={(event) => setEditContent(event.target.value)}
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium">{t("historyLabelSourceOptional")}</label>
+                      <Input value={editSource} onChange={(event) => setEditSource(event.target.value)} />
+                    </div>
+
+                    <Button type="submit" disabled={saving}>
+                      {saving ? t("historySaving") : t("historySave")}
+                    </Button>
+                  </form>
+                ) : (
+                  <p className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">
+                    {preview
+                      ? `${preview.slice(0, 220)}${preview.length > 220 ? "..." : ""}`
+                      : t("historyNoContent")}
+                  </p>
+                )}
               </article>
             );
           })}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={t("confirmDialogTitle")}
+        message={
+          deleteTarget
+            ? locale === "zh-CN"
+              ? `${t("historyConfirmDelete")}「${deleteTarget.title}」吗？`
+              : `${t("historyConfirmDelete")} "${deleteTarget.title}"?`
+            : ""
+        }
+        variant="danger"
+        onConfirm={() => {
+          void confirmDelete();
+        }}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </section>
   );
 }

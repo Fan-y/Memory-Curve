@@ -1,6 +1,25 @@
 import { useCallback, useEffect, useState } from "react";
 import { getProfile, updateProfile } from "@/lib/api/profiles";
 import { useI18n } from "@/hooks/useI18n";
+import { useAuthStore } from "@/stores/authStore";
+
+const STORAGE_KEY = "memory-curve-tour-completed";
+
+function getStoredCompleted(): string | null {
+  try {
+    return localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function setStoredCompleted(value: string) {
+  try {
+    localStorage.setItem(STORAGE_KEY, value);
+  } catch {
+    /* ignore */
+  }
+}
 
 export interface TourStep {
   target: string;
@@ -10,7 +29,6 @@ export interface TourStep {
 }
 
 interface UseTourOptions {
-  /** 当前是否没有今日任务（用于动态移除第 3 步） */
   todayEmpty: boolean;
 }
 
@@ -25,7 +43,7 @@ export interface UseTourReturn {
 
 export function useTour({ todayEmpty }: UseTourOptions): UseTourReturn {
   const { t } = useI18n();
-  const [introduceCompletedAt, setIntroduceCompletedAt] = useState<string | null>(null);
+  const [introduceCompletedAt, setIntroduceCompletedAt] = useState<string | null>(() => getStoredCompleted());
   const [loading, setLoading] = useState(true);
 
   const allSteps: TourStep[] = [
@@ -62,8 +80,15 @@ export function useTour({ todayEmpty }: UseTourOptions): UseTourReturn {
   useEffect(() => {
     let cancelled = false;
     const fetch = async () => {
-      const user = await import("@/stores/authStore").then((m) => m.useAuthStore.getState().user);
+      const user = useAuthStore.getState().user;
       if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      const stored = getStoredCompleted();
+      if (stored) {
+        setIntroduceCompletedAt(stored);
         setLoading(false);
         return;
       }
@@ -77,7 +102,11 @@ export function useTour({ todayEmpty }: UseTourOptions): UseTourReturn {
         return;
       }
 
-      setIntroduceCompletedAt(result.data?.introduce_completed_at ?? null);
+      const value = result.data?.introduce_completed_at ?? null;
+      if (value) {
+        setStoredCompleted(value);
+        setIntroduceCompletedAt(value);
+      }
       setLoading(false);
     };
     void fetch();
@@ -87,22 +116,23 @@ export function useTour({ todayEmpty }: UseTourOptions): UseTourReturn {
   }, []);
 
   const markTourDone = useCallback(async () => {
-    const user = await import("@/stores/authStore").then((m) => m.useAuthStore.getState().user);
+    const now = new Date().toISOString();
+    setStoredCompleted(now);
+    setIntroduceCompletedAt(now);
+
+    const user = useAuthStore.getState().user;
     if (!user) return;
 
-    const now = new Date().toISOString();
     const result = await updateProfile(user.id, { introduce_completed_at: now });
-
     if (result.error) {
       console.warn("[useTour] Failed to save tour completion:", result.error);
-      return;
     }
-
-    setIntroduceCompletedAt(now);
   }, []);
 
+  const shouldRun = !loading && introduceCompletedAt === null;
+
   return {
-    shouldRun: !loading && introduceCompletedAt === null,
+    shouldRun,
     steps: allSteps,
     introduceCompletedAt,
     loading,

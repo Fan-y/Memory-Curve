@@ -1,8 +1,8 @@
-import { Joyride as ReactJoyride, type CallBackProps, type Step, STATUS } from "react-joyride";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { useI18n } from "@/hooks/useI18n";
-import { useSettingsStore } from "@/stores/settingsStore";
 import type { TourStep } from "@/hooks/useTour";
-import { useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
 
 export interface TourGuideProps {
   steps: TourStep[];
@@ -11,103 +11,142 @@ export interface TourGuideProps {
   onSkip: () => void;
 }
 
+function getElement(target: string): HTMLElement | null {
+  return document.querySelector(target);
+}
+
+function computeTooltipPosition(
+  el: HTMLElement,
+  placement: TourStep["placement"]
+): { top: number; left: number } {
+  const rect = el.getBoundingClientRect();
+  const gap = 12;
+  const horizontalCenter = rect.left + rect.width / 2;
+
+  switch (placement) {
+    case "top":
+      return { top: rect.top - gap, left: horizontalCenter };
+    case "bottom":
+      return { top: rect.bottom + gap, left: horizontalCenter };
+    case "left":
+      return { top: rect.top + rect.height / 2, left: rect.left - gap };
+    case "right":
+      return { top: rect.top + rect.height / 2, left: rect.right + gap };
+    case "center":
+    default:
+      return {
+        top: window.innerHeight / 2,
+        left: window.innerWidth / 2,
+      };
+  }
+}
+
 export default function TourGuide({ steps, run, onFinish, onSkip }: TourGuideProps) {
   const { t } = useI18n();
-  const theme = useSettingsStore((s) => s.theme);
-  const [isDark, setIsDark] = useState(false);
+  const [current, setCurrent] = useState(0);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const [spotlightRect, setSpotlightRect] = useState<DOMRect | null>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+
+  const step = steps[current];
+  const isLast = current === steps.length - 1;
+
+  const updatePosition = useCallback(() => {
+    if (!step || step.placement === "center") {
+      setSpotlightRect(null);
+      setPos({ top: window.innerHeight / 2, left: window.innerWidth / 2 });
+      return;
+    }
+    const el = getElement(step.target);
+    if (!el) {
+      setSpotlightRect(null);
+      setPos({ top: window.innerHeight / 2, left: window.innerWidth / 2 });
+      return;
+    }
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    const tooltipPos = computeTooltipPosition(el, step.placement);
+    setPos(tooltipPos);
+    setSpotlightRect(el.getBoundingClientRect());
+  }, [step]);
 
   useEffect(() => {
-    if (theme === "dark") {
-      setIsDark(true);
-    } else if (theme === "light") {
-      setIsDark(false);
-    } else {
-      const mq = window.matchMedia("(prefers-color-scheme: dark)");
-      setIsDark(mq.matches);
-      const handler = (e: MediaQueryListEvent) => setIsDark(e.matches);
-      mq.addEventListener("change", handler);
-      return () => mq.removeEventListener("change", handler);
-    }
-  }, [theme]);
+    if (!run) return;
+    updatePosition();
+    const handle = () => updatePosition();
+    window.addEventListener("resize", handle);
+    window.addEventListener("scroll", handle, { passive: true });
+    return () => {
+      window.removeEventListener("resize", handle);
+      window.removeEventListener("scroll", handle);
+    };
+  }, [run, updatePosition]);
 
-  const handleCallback = (data: CallBackProps) => {
-    const { status, action } = data;
-    if (status === STATUS.FINISHED) {
+  const goNext = () => {
+    if (isLast) {
       onFinish();
-    } else if (status === STATUS.SKIPPED) {
-      onSkip();
-    } else if (action === "close") {
-      onSkip();
+    } else {
+      setCurrent((c) => c + 1);
     }
   };
 
-  const joyrideSteps: Step[] = steps.map((s) => ({
-    target: s.target,
-    title: s.title,
-    content: s.content,
-    placement: s.placement ?? "bottom",
-    skipBeacon: true,
-  }));
+  const goPrev = () => {
+    if (current === 0) return;
+    setCurrent((c) => c - 1);
+  };
+
+  if (!run || !step) return null;
 
   return (
-    <ReactJoyride
-      steps={joyrideSteps}
-      run={run}
-      continuous
-      showSkipButton
-      hideCloseButton={false}
-      scrollToFirstStep
-      disableOverlayClose
-      disableScrolling={false}
-      spotlightClicks
-      locale={{
-        back: t("tourButtonBack"),
-        close: t("tourButtonClose"),
-        last: t("tourButtonLast"),
-        next: t("tourButtonNext"),
-        skip: t("tourButtonSkip"),
-      }}
-      styles={{
-        options: {
-          primaryColor: isDark ? "#818cf8" : "#4f46e5",
-          zIndex: 10000,
-        },
-        tooltip: {
-          borderRadius: "0.5rem",
-          padding: "0.75rem",
-          fontSize: "0.875rem",
-        },
-        tooltipContainer: {
-          textAlign: "left" as const,
-        },
-        tooltipTitle: {
-          fontSize: "1rem",
-          fontWeight: 600,
-        },
-        tooltipContent: {
-          marginTop: "0.25rem",
-        },
-        tooltipFooter: {
-          marginTop: "0.75rem",
-        },
-        buttonNext: {
-          borderRadius: "0.375rem",
-          fontSize: "0.875rem",
-          padding: "0.5rem 1rem",
-        },
-        buttonBack: {
-          borderRadius: "0.375rem",
-          fontSize: "0.875rem",
-          marginRight: "0.5rem",
-        },
-        buttonSkip: {
-          color: isDark ? "#9ca3af" : "#6b7280",
-        },
-        buttonClose: {
-          color: isDark ? "#9ca3af" : "#6b7280",
-        },
-      }}
-      callback={handleCallback}
-    />
+    <>
+      <div className="fixed inset-0 z-[9999] bg-black/50" onClick={onSkip} />
+      {spotlightRect ? (
+        <div
+          className="fixed z-[10000] rounded-lg shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]"
+          style={{
+            top: spotlightRect.top - 4,
+            left: spotlightRect.left - 4,
+            width: spotlightRect.width + 8,
+            height: spotlightRect.height + 8,
+          }}
+        />
+      ) : null}
+      <div
+        ref={tooltipRef}
+        className={cn(
+          "fixed z-[10001] w-72 rounded-xl border bg-card p-4 shadow-lg -translate-x-1/2 -translate-y-1/2",
+          step.placement === "top" ? "-translate-y-full" : ""
+        )}
+        style={{ top: step.placement === "center" ? "50%" : pos.top, left: pos.left }}
+      >
+        <h4 className="text-sm font-semibold">{step.title}</h4>
+        <p className="mt-2 text-xs text-muted-foreground">{step.content}</p>
+        <div className="mt-3 flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            {steps.map((_, i) => (
+              <span
+                key={i}
+                className={cn(
+                  "block h-1.5 rounded-full transition-all",
+                  i === current ? "w-4 bg-primary" : "w-1.5 bg-muted"
+                )}
+              />
+            ))}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Button variant="ghost" size="sm" onClick={onSkip}>
+              {t("tourButtonSkip")}
+            </Button>
+            {current > 0 ? (
+              <Button variant="outline" size="sm" onClick={goPrev}>
+                {t("tourButtonBack")}
+              </Button>
+            ) : null}
+            <Button size="sm" onClick={goNext}>
+              {isLast ? t("tourButtonLast") : t("tourButtonNext")}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }

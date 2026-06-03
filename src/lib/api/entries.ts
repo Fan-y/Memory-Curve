@@ -1,6 +1,7 @@
 import { getSupabaseClient } from "@/lib/supabase";
 import { trackEvent } from "@/lib/api/analytics";
 import { apiFailure, apiSuccess, normalizeApiError, type ApiResult } from "./shared.ts";
+import { deleteReviewsByEntryId } from "./reviews.ts";
 import type { Tables, TablesInsert, TablesUpdate } from "@/types/database";
 
 export type EntryRow = Tables<"entries">;
@@ -99,6 +100,19 @@ export async function updateEntry(
 export async function deleteEntry(entryId: string, userId: string): Promise<ApiResult<boolean>> {
   try {
     const supabase = getSupabaseClient();
+
+    const reviewsResult = await deleteReviewsByEntryId(entryId, userId);
+    if (reviewsResult.error) {
+      return apiFailure(reviewsResult.error);
+    }
+
+    const { error: tagsError } = await supabase
+      .from("entry_tags")
+      .delete()
+      .eq("entry_id", entryId);
+    if (tagsError) {
+      return apiFailure(normalizeApiError(tagsError));
+    }
 
     const { error } = await supabase
       .from("entries")

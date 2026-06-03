@@ -62,6 +62,7 @@ export default function OnboardingPage() {
           </span>
           <h2 className="text-2xl font-semibold tracking-tight">{t("guideTitle")}</h2>
           <p className="max-w-2xl text-sm text-muted-foreground">{t("guideSubtitle")}</p>
+          <p className="max-w-2xl text-xs text-muted-foreground/70">{t("guidePageHint")}</p>
 
           <div className="flex flex-wrap items-center gap-2 pt-2">
             <Link to="/add">
