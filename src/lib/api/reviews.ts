@@ -1,4 +1,5 @@
 import { getSupabaseClient } from "@/lib/supabase";
+import { trackEvent } from "@/lib/api/analytics";
 import { apiFailure, apiSuccess, normalizeApiError, type ApiResult } from "./shared.ts";
 import type { Tables, TablesInsert, TablesUpdate } from "@/types/database";
 
@@ -185,6 +186,12 @@ export async function completeReview(
     if (error) {
       return apiFailure(normalizeApiError(error));
     }
+
+    void trackEvent(userId, "first_review_complete", {
+      review_id: reviewId,
+      entry_id: data.entry_id,
+      rating: patch.last_rating,
+    });
 
     return apiSuccess(data);
   } catch (error) {

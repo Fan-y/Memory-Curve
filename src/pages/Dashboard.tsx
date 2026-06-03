@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 
 import ReviewCard from "@/components/ReviewCard";
+import TourGuide from "@/components/tour/TourGuide";
 import { getUserEntries } from "@/lib/api/entries";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useI18n } from "@/hooks/useI18n";
+import { useTour } from "@/hooks/useTour";
 import { useAuthStore } from "@/stores/authStore";
 import { useReviewStore } from "@/stores/reviewStore";
 import { ReviewRating } from "@/types";
@@ -69,8 +71,12 @@ export default function Dashboard() {
     setActiveReviewId(null);
   };
 
+  const { shouldRun, steps, completeTour, skipTour } = useTour({
+    todayEmpty: todayReviews.length === 0,
+  });
+
   return (
-    <section className="space-y-6">
+    <section className="space-y-6" data-tour="dashboard-done">
       <header>
         <h2 className="text-2xl font-semibold">{t("dashboardTitle")}</h2>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -103,12 +109,12 @@ export default function Dashboard() {
         </p>
       ) : null}
 
-      <div className="space-y-3">
+      <div className="space-y-3" data-tour="dashboard-section-today">
         <h3 className="text-lg font-medium">{t("dashboardSectionToday")}</h3>
         {todayReviews.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t("dashboardSectionTodayEmpty")}</p>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3" data-tour="dashboard-review-card">
             {todayReviews.map((review) => (
               <ReviewCard
                 key={review.id}
@@ -140,6 +146,15 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {shouldRun && (
+        <TourGuide
+          steps={steps}
+          run={shouldRun}
+          onFinish={completeTour}
+          onSkip={skipTour}
+        />
+      )}
     </section>
   );
 }

@@ -89,6 +89,7 @@ export default function AppLayout() {
                 key={item.to}
                 to={item.to}
                 end={item.end}
+                {...(item.to === "/add" ? { "data-tour": "nav-add-entry" } : {})}
                 className={({ isActive }) =>
                   cn(
                     "inline-flex h-10 items-center justify-center rounded-lg px-3 text-sm font-medium transition",
@@ -124,6 +125,7 @@ export default function AppLayout() {
               key={item.to}
               to={item.to}
               end={item.end}
+              {...(item.to === "/add" ? { "data-tour": "nav-add-entry" } : {})}
               className={({ isActive }) =>
                 cn(
                   "flex h-10 items-center justify-center rounded-md px-1 font-medium leading-none transition",

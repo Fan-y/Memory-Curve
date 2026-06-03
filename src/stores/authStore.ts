@@ -1,6 +1,7 @@
 import type { Session, User } from "@supabase/supabase-js";
 import { create } from "zustand";
 
+import { trackEvent } from "@/lib/api/analytics";
 import {
   getSupabaseClient,
   isSupabaseConfigured,
@@ -134,6 +135,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         code: "AUTH_SIGN_UP_EMAIL_VERIFICATION_REQUIRED",
       };
     }
+
+    void trackEvent(data.user.id, "register");
 
     return {
       error: null,

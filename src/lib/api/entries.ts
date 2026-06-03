@@ -1,4 +1,5 @@
 import { getSupabaseClient } from "@/lib/supabase";
+import { trackEvent } from "@/lib/api/analytics";
 import { apiFailure, apiSuccess, normalizeApiError, type ApiResult } from "./shared.ts";
 import type { Tables, TablesInsert, TablesUpdate } from "@/types/database";
 
@@ -19,6 +20,8 @@ export async function createEntry(input: EntryInsert): Promise<ApiResult<EntryRo
     if (error) {
       return apiFailure(normalizeApiError(error));
     }
+
+    void trackEvent(input.user_id, "first_content_create", { entry_id: data.id });
 
     return apiSuccess(data);
   } catch (error) {

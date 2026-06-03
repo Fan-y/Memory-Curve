@@ -14,18 +14,21 @@ export type Database = {
           id: string;
           display_name: string | null;
           avatar_url: string | null;
+          introduce_completed_at: string | null;
           created_at: string;
         };
         Insert: {
           id: string;
           display_name?: string | null;
           avatar_url?: string | null;
+          introduce_completed_at?: string | null;
           created_at?: string;
         };
         Update: {
           id?: string;
           display_name?: string | null;
           avatar_url?: string | null;
+          introduce_completed_at?: string | null;
           created_at?: string;
         };
         Relationships: [];
@@ -101,6 +104,30 @@ export type Database = {
         Update: {
           entry_id?: string;
           tag_id?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      analytics_events: {
+        Row: {
+          id: string;
+          user_id: string;
+          event_name: string;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          event_name: string;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          event_name?: string;
+          metadata?: Json;
           created_at?: string;
         };
         Relationships: [];
