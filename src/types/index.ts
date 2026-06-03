@@ -1,24 +1,26 @@
-export interface Tag {
-  name: string
-  color: string
+import type { Tables } from "@/types/database";
+
+export type Profile = Tables<"profiles">;
+export type Entry = Tables<"entries">;
+export type Tag = Tables<"tags">;
+export type EntryTag = Tables<"entry_tags">;
+export type Review = Tables<"reviews">;
+
+export enum ReviewRating {
+  Again = 1,
+  Hard = 2,
+  Good = 3,
+  Easy = 4,
 }
 
-export interface Entry {
-  id?: number
-  title: string
-  description: string
-  tags: string[]
-  source: string
-  createdAt: string
+export enum ReviewState {
+  New = 0,
+  Learning = 1,
+  Review = 2,
+  Relearning = 3,
 }
 
-export interface Review {
-  id?: number
-  entryId: number
-  reviewNumber: number
-  scheduledDate: string
-  completed: boolean
-  completedAt: string | null
-}
-
-export const REVIEW_INTERVALS = [1, 2, 4, 7, 15, 30]
+export type EntryWithRelations = Entry & {
+  tags: Tag[];
+  reviews: Review[];
+};

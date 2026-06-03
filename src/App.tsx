@@ -1,30 +1,53 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { ThemeProvider, CssBaseline } from '@mui/material'
-import theme from './theme'
-import Layout from './components/Layout'
-import Dashboard from './pages/Dashboard'
-import AddEntry from './pages/AddEntry'
-import History from './pages/History'
-import Calendar from './pages/Calendar'
-import Stats from './pages/Stats'
+import { useEffect } from "react";
+import { Navigate, Route, Routes } from "react-router-dom";
 
-function App() {
+import AuthGuard from "@/components/AuthGuard";
+import AuthLayout from "@/components/AuthLayout";
+import AppLayout from "@/components/layout/AppLayout";
+import AddEntry from "@/pages/AddEntry";
+import CalendarPage from "@/pages/Calendar";
+import Dashboard from "@/pages/Dashboard";
+import History from "@/pages/History";
+import StatsPage from "@/pages/Stats";
+import LoginPage from "@/pages/Auth/LoginPage";
+import ResetPasswordPage from "@/pages/Auth/ResetPasswordPage";
+import SignUpPage from "@/pages/Auth/SignUpPage";
+import NotFoundPage from "@/pages/NotFoundPage";
+import SetupRequiredPage from "@/pages/SetupRequiredPage";
+import { useAuthStore } from "@/stores/authStore";
+import { useSettingsStore } from "@/stores/settingsStore";
+
+export default function App() {
+  const initialize = useAuthStore((state) => state.initialize);
+  const initializeSettings = useSettingsStore((state) => state.initialize);
+
+  useEffect(() => {
+    void initialize();
+    initializeSettings();
+  }, [initialize, initializeSettings]);
+
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <BrowserRouter>
-        <Routes>
-          <Route element={<Layout />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/add" element={<AddEntry />} />
-            <Route path="/history" element={<History />} />
-            <Route path="/calendar" element={<Calendar />} />
-            <Route path="/stats" element={<Stats />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </ThemeProvider>
-  )
-}
+    <Routes>
+      <Route path="/setup" element={<SetupRequiredPage />} />
 
-export default App
+      <Route path="/auth" element={<AuthLayout />}>
+        <Route index element={<Navigate to="/auth/login" replace />} />
+        <Route path="login" element={<LoginPage />} />
+        <Route path="signup" element={<SignUpPage />} />
+        <Route path="reset-password" element={<ResetPasswordPage />} />
+      </Route>
+
+      <Route element={<AuthGuard />}>
+        <Route path="/" element={<AppLayout />}>
+          <Route index element={<Dashboard />} />
+          <Route path="add" element={<AddEntry />} />
+          <Route path="history" element={<History />} />
+          <Route path="calendar" element={<CalendarPage />} />
+          <Route path="stats" element={<StatsPage />} />
+        </Route>
+      </Route>
+
+      <Route path="*" element={<NotFoundPage />} />
+    </Routes>
+  );
+}
