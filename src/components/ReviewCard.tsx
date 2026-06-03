@@ -1,82 +1,45 @@
-import {
-  Card,
-  CardContent,
-  Typography,
-  Chip,
-  Box,
-  IconButton,
-  LinearProgress,
-} from '@mui/material'
-import CheckCircleIcon from '@mui/icons-material/CheckCircleRounded'
-import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUncheckedRounded'
-import type { Review, Entry } from '../types'
-import { formatDateFull } from '../utils/dates'
+import { Button } from "@/components/ui/button";
+import type { Review } from "@/types";
+import { ReviewRating } from "@/types";
 
-interface Props {
-  review: Review & { entry: Entry }
-  onComplete: (id: number) => void
-}
+type ReviewCardProps = {
+  review: Review;
+  onRate: (reviewId: string, rating: ReviewRating) => Promise<void> | void;
+  disabled?: boolean;
+};
 
-export default function ReviewCard({ review, onComplete }: Props) {
+const ratingActions: Array<{ label: string; rating: ReviewRating; className: string }> = [
+  { label: "Again", rating: ReviewRating.Again, className: "bg-rose-600 hover:bg-rose-700" },
+  { label: "Hard", rating: ReviewRating.Hard, className: "bg-amber-600 hover:bg-amber-700" },
+  { label: "Good", rating: ReviewRating.Good, className: "bg-sky-600 hover:bg-sky-700" },
+  { label: "Easy", rating: ReviewRating.Easy, className: "bg-emerald-600 hover:bg-emerald-700" },
+];
+
+export default function ReviewCard({ review, onRate, disabled }: ReviewCardProps) {
   return (
-    <Card
-      sx={{
-        mb: 1.5,
-        opacity: review.completed ? 0.55 : 1,
-        transition: 'all 0.2s ease',
-        '&:hover': { opacity: 1 },
-      }}
-    >
-      <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
-        <Box display="flex" alignItems="center" gap={2}>
-          <IconButton
-            onClick={() => onComplete(review.id!)}
-            sx={{
-              color: review.completed ? 'success.main' : 'action.disabled',
-              '&:hover': { color: 'success.main', bgcolor: 'success.light' },
-              transition: 'all 0.15s ease',
+    <article className="rounded-xl border bg-card p-4 shadow-sm">
+      <div className="space-y-1">
+        <h3 className="font-medium">复习记录 {review.id.slice(0, 8)}</h3>
+        <p className="text-xs text-muted-foreground">条目 ID：{review.entry_id}</p>
+        <p className="text-xs text-muted-foreground">
+          计划时间：{new Date(review.scheduled_date).toLocaleString()}
+        </p>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {ratingActions.map((action) => (
+          <Button
+            key={action.label}
+            className={action.className}
+            disabled={disabled}
+            onClick={() => {
+              void onRate(review.id, action.rating);
             }}
           >
-            {review.completed ? <CheckCircleIcon /> : <RadioButtonUncheckedIcon />}
-          </IconButton>
-
-          <Box flex={1} minWidth={0}>
-            <Typography variant="subtitle1" fontWeight={600} noWrap>
-              {review.entry.title}
-            </Typography>
-            {review.entry.tags.length > 0 && (
-              <Box display="flex" gap={0.5} flexWrap="wrap" mt={0.5}>
-                {review.entry.tags.map((tag) => (
-                  <Chip key={tag} label={tag} size="small" variant="outlined" />
-                ))}
-              </Box>
-            )}
-          </Box>
-
-          <Box textAlign="right" minWidth={140}>
-            <Typography variant="body2" fontWeight={600} color="primary">
-              第 {review.reviewNumber}/6 次
-            </Typography>
-            <Typography variant="caption" color="text.disabled">
-              {formatDateFull(review.scheduledDate)}
-            </Typography>
-          </Box>
-
-          <Box sx={{ width: 120 }}>
-            <Box display="flex" justifyContent="space-between" mb={0.5}>
-              <Typography variant="caption" color="text.disabled">进度</Typography>
-              <Typography variant="caption" fontWeight={600} color="primary">
-                {Math.round((review.reviewNumber / 6) * 100)}%
-              </Typography>
-            </Box>
-            <LinearProgress
-              variant="determinate"
-              value={(review.reviewNumber / 6) * 100}
-              sx={{ height: 5 }}
-            />
-          </Box>
-        </Box>
-      </CardContent>
-    </Card>
-  )
+            {action.label}
+          </Button>
+        ))}
+      </div>
+    </article>
+  );
 }

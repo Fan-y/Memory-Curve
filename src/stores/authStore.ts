@@ -1,0 +1,192 @@
+import type { Session, User } from "@supabase/supabase-js";
+import { create } from "zustand";
+
+import {
+  getSupabaseClient,
+  isSupabaseConfigured,
+  SUPABASE_CONFIG_ERROR,
+} from "@/lib/supabase";
+
+export type OAuthProvider = "google" | "github";
+
+export type AuthActionResult = {
+  error: string | null;
+  message?: string;
+};
+
+type AuthState = {
+  loading: boolean;
+  initialized: boolean;
+  configError: string | null;
+  session: Session | null;
+  user: User | null;
+  initialize: () => Promise<void>;
+  signIn: (email: string, password: string) => Promise<AuthActionResult>;
+  signUp: (
+    email: string,
+    password: string,
+    displayName?: string
+  ) => Promise<AuthActionResult>;
+  signInWithOAuth: (provider: OAuthProvider) => Promise<AuthActionResult>;
+  signOut: () => Promise<AuthActionResult>;
+  resetPassword: (email: string) => Promise<AuthActionResult>;
+};
+
+let unsubscribeAuthListener: (() => void) | null = null;
+
+export const useAuthStore = create<AuthState>((set, get) => ({
+  loading: true,
+  initialized: false,
+  configError: null,
+  session: null,
+  user: null,
+
+  initialize: async () => {
+    if (get().initialized) {
+      return;
+    }
+
+    if (!isSupabaseConfigured) {
+      set({
+        loading: false,
+        initialized: true,
+        configError: SUPABASE_CONFIG_ERROR,
+      });
+      return;
+    }
+
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase.auth.getSession();
+
+    if (error) {
+      set({
+        loading: false,
+        initialized: true,
+        configError: error.message,
+      });
+      return;
+    }
+
+    set({
+      loading: false,
+      initialized: true,
+      session: data.session,
+      user: data.session?.user ?? null,
+      configError: null,
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      set({
+        session,
+        user: session?.user ?? null,
+      });
+    });
+
+    unsubscribeAuthListener?.();
+    unsubscribeAuthListener = () => {
+      listener.subscription.unsubscribe();
+    };
+  },
+
+  signIn: async (email: string, password: string) => {
+    if (!isSupabaseConfigured) {
+      return { error: SUPABASE_CONFIG_ERROR };
+    }
+
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    return { error: null };
+  },
+
+  signUp: async (email: string, password: string, displayName?: string) => {
+    if (!isSupabaseConfigured) {
+      return { error: SUPABASE_CONFIG_ERROR };
+    }
+
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: window.location.origin,
+        data: displayName ? { display_name: displayName } : undefined,
+      },
+    });
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    if (!data.session) {
+      return {
+        error: null,
+        message: "注册成功，请去邮箱点击验证链接后再登录。",
+      };
+    }
+
+    return { error: null, message: "注册成功，已自动登录。" };
+  },
+
+  signInWithOAuth: async (provider: OAuthProvider) => {
+    if (!isSupabaseConfigured) {
+      return { error: SUPABASE_CONFIG_ERROR };
+    }
+
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    return {
+      error: null,
+      message: "正在跳转到第三方登录...",
+    };
+  },
+
+  signOut: async () => {
+    if (!isSupabaseConfigured) {
+      return { error: SUPABASE_CONFIG_ERROR };
+    }
+
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    return { error: null };
+  },
+
+  resetPassword: async (email: string) => {
+    if (!isSupabaseConfigured) {
+      return { error: SUPABASE_CONFIG_ERROR };
+    }
+
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/reset-password`,
+    });
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    return {
+      error: null,
+      message: "重置邮件已发送，请到邮箱查看。",
+    };
+  },
+}));

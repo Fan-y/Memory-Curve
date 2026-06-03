@@ -1,196 +1,295 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { FormEvent, useEffect, useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { createEntry, getUserEntries, type EntryRow } from "@/lib/api/entries";
 import {
-  Typography,
-  TextField,
-  Button,
-  Box,
-  Paper,
-  Alert,
-  Snackbar,
-  Divider,
-} from '@mui/material'
-import SaveIcon from '@mui/icons-material/SaveRounded'
-import BookmarkIcon from '@mui/icons-material/BookmarkBorderRounded'
-import TagSelector from '../components/TagSelector'
-import { db } from '../db/db'
+  createTag,
+  getUserTags,
+  setEntryTags,
+  type TagRow,
+} from "@/lib/api/tags";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { useI18n } from "@/hooks/useI18n";
+import { useAuthStore } from "@/stores/authStore";
+import { useReviewStore } from "@/stores/reviewStore";
 
 export default function AddEntry() {
-  const navigate = useNavigate()
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [source, setSource] = useState('')
-  const [tags, setTags] = useState<string[]>([])
-  const [allTags, setAllTags] = useState<string[]>([])
-  const [saving, setSaving] = useState(false)
-  const [snackbar, setSnackbar] = useState<string | null>(null)
+  const { t } = useI18n();
+  const user = useAuthStore((state) => state.user);
+  const createInitialReviewForEntry = useReviewStore(
+    (state) => state.createInitialReviewForEntry
+  );
+
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [source, setSource] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [entries, setEntries] = useState<EntryRow[]>([]);
+  const [tags, setTags] = useState<TagRow[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [newTagName, setNewTagName] = useState("");
+  const [creatingTag, setCreatingTag] = useState(false);
+
+  useDocumentTitle(`${t("addEntryTitle")} - Memory Curve`);
+
+  const loadEntries = async () => {
+    if (!user) {
+      return;
+    }
+
+    const result = await getUserEntries(user.id);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+
+    setEntries(result.data ?? []);
+  };
+
+  const loadTags = async () => {
+    if (!user) {
+      return;
+    }
+
+    const result = await getUserTags(user.id);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+
+    setTags(result.data ?? []);
+  };
 
   useEffect(() => {
-    db.getAllTags().then((t) => setAllTags(t.map((t) => t.name)))
-  }, [])
+    void loadEntries();
+    void loadTags();
+  }, [user]);
 
-  const handleAddTag = async (name: string, color: string) => {
-    await db.addTag(name, color)
-    setAllTags((prev) => [...prev, name])
-  }
+  const toggleTag = (tagId: string) => {
+    setSelectedTagIds((current) => {
+      if (current.includes(tagId)) {
+        return current.filter((id) => id !== tagId);
+      }
 
-  const handleSubmit = async () => {
-    if (!title.trim()) return
-    setSaving(true)
-    try {
-      await db.addEntry({
-        title: title.trim(),
-        description: description.trim(),
-        source: source.trim(),
-        tags,
-      })
-      setSnackbar('添加成功！')
-      setTimeout(() => navigate('/'), 1000)
-    } finally {
-      setSaving(false)
+      return [...current, tagId];
+    });
+  };
+
+  const onCreateTag = async () => {
+    if (!user) {
+      return;
     }
-  }
+
+    const name = newTagName.trim();
+    if (!name) {
+      return;
+    }
+
+    setCreatingTag(true);
+    setError(null);
+
+    const result = await createTag({
+      user_id: user.id,
+      name,
+    });
+
+    setCreatingTag(false);
+
+    if (result.error || !result.data) {
+      setError(result.error ?? "标签创建失败。");
+      return;
+    }
+
+    const createdTag = result.data;
+
+    setTags((current) => {
+      const next = [...current, createdTag];
+      next.sort((a, b) => a.name.localeCompare(b.name));
+      return next;
+    });
+    setSelectedTagIds((current) => [...current, createdTag.id]);
+    setNewTagName("");
+  };
+
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!user) {
+      setError("当前未登录，无法创建条目。");
+      return;
+    }
+
+    if (!title.trim()) {
+      setError("标题不能为空。");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+
+    const createEntryResult = await createEntry({
+      user_id: user.id,
+      title: title.trim(),
+      content_md: content.trim(),
+      source: source.trim() || null,
+    });
+
+    if (createEntryResult.error || !createEntryResult.data) {
+      setLoading(false);
+      setError(createEntryResult.error ?? "条目创建失败。");
+      return;
+    }
+
+    if (selectedTagIds.length > 0) {
+      const tagResult = await setEntryTags(
+        createEntryResult.data.id,
+        user.id,
+        selectedTagIds
+      );
+
+      if (tagResult.error) {
+        setLoading(false);
+        setError(tagResult.error);
+        return;
+      }
+    }
+
+    const reviewResult = await createInitialReviewForEntry(
+      createEntryResult.data.id,
+      user.id
+    );
+
+    setLoading(false);
+
+    if (reviewResult.error) {
+      setError(reviewResult.error);
+      return;
+    }
+
+    setTitle("");
+    setContent("");
+    setSource("");
+    setSelectedTagIds([]);
+    setMessage("条目已创建，并生成了首条复习任务。");
+
+    await loadEntries();
+  };
 
   return (
-    <Box>
-      {/* 标题区 */}
-      <Box mb={3}>
-        <Typography variant="h4" fontWeight={700} mb={1}>
-          添加学习记录
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          记录你学的内容，系统将按艾宾浩斯曲线自动安排 6 次复习
-        </Typography>
-      </Box>
+    <section className="space-y-6">
+      <header>
+        <h2 className="text-2xl font-semibold">{t("addEntryTitle")}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          提交后会自动生成第一条复习任务。
+        </p>
+      </header>
 
-      {/* 表单主体 */}
-      <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
-        {/* 主标题 —— 最重要的字段，用浅色背景突出 */}
-        <Box sx={{ px: 4, pt: 4, pb: 3, bgcolor: '#F8FAFC' }}>
-          <Box display="flex" alignItems="center" gap={1} mb={0.75}>
-            <Box
-              sx={{
-                width: 4,
-                height: 20,
-                borderRadius: 2,
-                bgcolor: 'primary.main',
-              }}
-            />
-            <Typography variant="subtitle2" color="text.secondary" fontWeight={700} sx={{ letterSpacing: 0.5 }}>
-              必填
-            </Typography>
-          </Box>
-          <TextField
-            placeholder="今天学的是什么？例如：HTML 基础标签"
-            fullWidth
-            required
+      <form className="space-y-4 rounded-xl border bg-card p-4" onSubmit={onSubmit}>
+        <div className="space-y-2">
+          <label className="text-sm font-medium">标题</label>
+          <Input
+            placeholder="例如：TCP 三次握手"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            variant="outlined"
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                bgcolor: '#fff',
-                fontSize: '1.05rem',
-                '& input': {
-                  py: 1.75,
-                },
-              },
-            }}
+            onChange={(event) => setTitle(event.target.value)}
           />
-        </Box>
+        </div>
 
-        <Divider />
+        <div className="space-y-2">
+          <label className="text-sm font-medium">内容（Markdown）</label>
+          <textarea
+            className="min-h-36 w-full rounded-md border border-input bg-card px-3 py-2 text-sm outline-none ring-primary focus:ring-2"
+            placeholder="写下核心知识点..."
+            value={content}
+            onChange={(event) => setContent(event.target.value)}
+          />
+        </div>
 
-        {/* 来源 + 标签 */}
-        <Box sx={{ px: 4, py: 3 }}>
-          <Box display="flex" alignItems="center" gap={1} mb={2}>
-            <BookmarkIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
-            <Typography variant="subtitle2" color="text.secondary" fontWeight={700} sx={{ letterSpacing: 0.5 }}>
-              分类信息（可选）
-            </Typography>
-          </Box>
+        <div className="space-y-2">
+          <label className="text-sm font-medium">来源（可选）</label>
+          <Input
+            placeholder="书籍、课程、文章链接..."
+            value={source}
+            onChange={(event) => setSource(event.target.value)}
+          />
+        </div>
 
-          <Box display="grid" gridTemplateColumns="1fr 1fr" gap={3}>
-            <TextField
-              label="来源"
-              placeholder="书籍 / 视频 / 课程..."
-              value={source}
-              onChange={(e) => setSource(e.target.value)}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  bgcolor: '#F8FAFC',
-                },
+        <div className="space-y-2">
+          <label className="text-sm font-medium">标签（可选）</label>
+          <div className="flex flex-wrap gap-2">
+            {tags.length === 0 ? (
+              <p className="text-xs text-muted-foreground">暂无标签，先创建一个。</p>
+            ) : (
+              tags.map((tag) => {
+                const selected = selectedTagIds.includes(tag.id);
+
+                return (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    className={`rounded-full border px-3 py-1 text-xs transition ${
+                      selected
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-input text-muted-foreground hover:bg-muted"
+                    }`}
+                    onClick={() => toggleTag(tag.id)}
+                  >
+                    {tag.name}
+                  </button>
+                );
+              })
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              className="max-w-xs"
+              placeholder="新标签名..."
+              value={newTagName}
+              onChange={(event) => setNewTagName(event.target.value)}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={creatingTag || !newTagName.trim()}
+              onClick={() => {
+                void onCreateTag();
               }}
-            />
-            <TagSelector
-              tags={tags}
-              allTags={allTags}
-              onChange={setTags}
-              onAddTag={handleAddTag}
-            />
-          </Box>
-        </Box>
+            >
+              {creatingTag ? "创建中..." : "创建标签"}
+            </Button>
+          </div>
+        </div>
 
-        <Divider />
+        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        {message ? <p className="text-sm text-emerald-600">{message}</p> : null}
 
-        {/* 描述 */}
-        <Box sx={{ px: 4, py: 3 }}>
-          <Box display="flex" alignItems="center" gap={1} mb={2}>
-            <BookmarkIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
-            <Typography variant="subtitle2" color="text.secondary" fontWeight={700} sx={{ letterSpacing: 0.5 }}>
-              详细描述（可选）
-            </Typography>
-          </Box>
-          <TextField
-            placeholder="记录重点内容、个人理解、疑问..."
-            fullWidth
-            multiline
-            rows={5}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                bgcolor: '#F8FAFC',
-              },
-            }}
-          />
-        </Box>
+        <Button type="submit" disabled={loading}>
+          {loading ? "保存中..." : "保存条目"}
+        </Button>
+      </form>
 
-        <Divider />
-
-        {/* 操作按钮 */}
-        <Box sx={{ px: 4, py: 2.5, display: 'flex', gap: 1.5, justifyContent: 'flex-end', bgcolor: '#FAFAFA' }}>
-          <Button
-            variant="outlined"
-            size="large"
-            onClick={() => navigate('/')}
-            sx={{ px: 3 }}
-          >
-            取消
-          </Button>
-          <Button
-            variant="contained"
-            size="large"
-            startIcon={<SaveIcon />}
-            disabled={!title.trim() || saving}
-            onClick={handleSubmit}
-            sx={{ px: 4 }}
-          >
-            {saving ? '保存中…' : '保存'}
-          </Button>
-        </Box>
-      </Paper>
-
-      <Snackbar
-        open={!!snackbar}
-        autoHideDuration={2000}
-        onClose={() => setSnackbar(null)}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert severity="success" variant="filled" sx={{ borderRadius: 2 }}>
-          {snackbar}
-        </Alert>
-      </Snackbar>
-    </Box>
-  )
+      <div className="space-y-3">
+        <h3 className="text-lg font-medium">最近条目</h3>
+        {entries.length === 0 ? (
+          <p className="text-sm text-muted-foreground">还没有条目，先创建一个吧。</p>
+        ) : (
+          <div className="space-y-2">
+            {entries.slice(0, 8).map((entry) => (
+              <article key={entry.id} className="rounded-lg border bg-card p-3">
+                <h4 className="font-medium">{entry.title}</h4>
+                <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                  {entry.content_md || "(无内容)"}
+                </p>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
 }

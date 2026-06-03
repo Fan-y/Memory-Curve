@@ -1,254 +1,234 @@
-import { useState, useEffect, useCallback } from 'react'
-import {
-  Typography,
-  Box,
-  Paper,
-  IconButton,
-  Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-} from '@mui/material'
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeftRounded'
-import ChevronRightIcon from '@mui/icons-material/ChevronRightRounded'
-import { db } from '../db/db'
-import { getMonthWeeks, getMonthDate, isToday, formatDateFull } from '../utils/dates'
-import type { Entry, Review } from '../types'
+import { useEffect, useMemo, useState } from "react";
 
-export default function Calendar() {
-  const now = new Date()
-  const [year, setYear] = useState(now.getFullYear())
-  const [month, setMonth] = useState(now.getMonth())
-  const [reviewMap, setReviewMap] = useState<Map<string, { completed: number; total: number }>>(new Map())
-  const [selectedDate, setSelectedDate] = useState<string | null>(null)
-  const [selectedEntries, setSelectedEntries] = useState<(Entry & { reviews: Review[] })[]>([])
+import { Button } from "@/components/ui/button";
+import { getUserEntries } from "@/lib/api/entries";
+import { getReviewsByScheduledRange, type ReviewRow } from "@/lib/api/reviews";
+import { cn } from "@/lib/utils";
+import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { useI18n } from "@/hooks/useI18n";
+import { useAuthStore } from "@/stores/authStore";
 
-  const load = useCallback(async () => {
-    const all = await db.getAllEntriesWithReviews()
-    const map = new Map<string, { completed: number; total: number }>()
-    for (const entry of all) {
-      for (const r of entry.reviews) {
-        const key = r.scheduledDate
-        const cur = map.get(key) || { completed: 0, total: 0 }
-        cur.total++
-        if (r.completed) cur.completed++
-        map.set(key, cur)
-      }
+type CalendarCell = {
+  date: Date;
+  key: string;
+  inCurrentMonth: boolean;
+};
+
+const WEEKDAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
+
+const REVIEW_STATE_LABELS: Record<number, string> = {
+  0: "New",
+  1: "Learning",
+  2: "Review",
+  3: "Relearning",
+};
+
+function toDateKey(value: Date | string): string {
+  const date = typeof value === "string" ? new Date(value) : value;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function getCalendarRange(month: Date): { start: Date; end: Date } {
+  const monthStart = new Date(month.getFullYear(), month.getMonth(), 1);
+  const monthEnd = new Date(month.getFullYear(), month.getMonth() + 1, 0);
+
+  const start = new Date(monthStart);
+  start.setDate(monthStart.getDate() - monthStart.getDay());
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(monthEnd);
+  end.setDate(monthEnd.getDate() + (6 - monthEnd.getDay()));
+  end.setHours(23, 59, 59, 999);
+
+  return { start, end };
+}
+
+function buildCalendarCells(month: Date): CalendarCell[] {
+  const { start, end } = getCalendarRange(month);
+  const cells: CalendarCell[] = [];
+
+  const cursor = new Date(start);
+  while (cursor <= end) {
+    cells.push({
+      date: new Date(cursor),
+      key: toDateKey(cursor),
+      inCurrentMonth: cursor.getMonth() === month.getMonth(),
+    });
+
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return cells;
+}
+
+function formatMonthLabel(month: Date): string {
+  return `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}`;
+}
+
+export default function CalendarPage() {
+  const { t } = useI18n();
+  const user = useAuthStore((state) => state.user);
+
+  const [monthCursor, setMonthCursor] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+  const [selectedDateKey, setSelectedDateKey] = useState(() => toDateKey(new Date()));
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [reviews, setReviews] = useState<ReviewRow[]>([]);
+  const [entryTitles, setEntryTitles] = useState<Record<string, string>>({});
+
+  useDocumentTitle(`${t("calendarTitle")} - Memory Curve`);
+
+  const calendarCells = useMemo(() => buildCalendarCells(monthCursor), [monthCursor]);
+
+  const reviewCountByDate = useMemo(() => {
+    const result: Record<string, number> = {};
+
+    for (const review of reviews) {
+      const dateKey = toDateKey(review.scheduled_date);
+      result[dateKey] = (result[dateKey] ?? 0) + 1;
     }
-    setReviewMap(map)
-  }, [])
 
-  useEffect(() => { load() }, [load])
+    return result;
+  }, [reviews]);
 
-  const handleDayClick = async (day: number) => {
-    const date = getMonthDate(year, month, day)
-    setSelectedDate(date)
-    const entries = await db.getEntriesByDate(date)
-    setSelectedEntries(entries)
-  }
+  const selectedDateReviews = useMemo(() => {
+    return reviews
+      .filter((review) => toDateKey(review.scheduled_date) === selectedDateKey)
+      .sort((left, right) => left.scheduled_date.localeCompare(right.scheduled_date));
+  }, [reviews, selectedDateKey]);
 
-  const weeks = getMonthWeeks(year, month)
-  const monthLabel = `${year}年${month + 1}月`
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
 
-  const changeMonth = (delta: number) => {
-    let m = month + delta
-    let y = year
-    if (m < 0) { m = 11; y-- }
-    if (m > 11) { m = 0; y++ }
-    setMonth(m)
-    setYear(y)
-  }
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+
+      const { start, end } = getCalendarRange(monthCursor);
+      const [reviewsResult, entriesResult] = await Promise.all([
+        getReviewsByScheduledRange(user.id, start.toISOString(), end.toISOString()),
+        getUserEntries(user.id),
+      ]);
+
+      if (reviewsResult.error || entriesResult.error) {
+        setLoading(false);
+        setError(reviewsResult.error ?? entriesResult.error ?? "日历数据加载失败。");
+        return;
+      }
+
+      const nextTitles: Record<string, string> = {};
+      for (const entry of entriesResult.data ?? []) {
+        nextTitles[entry.id] = entry.title;
+      }
+
+      setReviews(reviewsResult.data ?? []);
+      setEntryTitles(nextTitles);
+      setLoading(false);
+    };
+
+    void load();
+  }, [monthCursor, user]);
+
+  const switchMonth = (delta: number) => {
+    const next = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + delta, 1);
+    setMonthCursor(next);
+    setSelectedDateKey(toDateKey(next));
+  };
 
   return (
-    <Box>
-      {/* 头部 */}
-      <Box mb={4}>
-        <Typography variant="h4" fontWeight={700} mb={0.5}>
-          复习日历
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          按月查看复习任务分布，点击日期查看详情
-        </Typography>
-      </Box>
+    <section className="space-y-6">
+      <header className="space-y-1">
+        <h2 className="text-2xl font-semibold">{t("calendarTitle")}</h2>
+        <p className="text-sm text-muted-foreground">按日查看任务量，并查看每日任务明细。</p>
+      </header>
 
-      {/* 日历主体 */}
-      <Paper sx={{ p: 4, borderRadius: 2 }}>
-        {/* 月份导航 */}
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-          <IconButton size="large" onClick={() => changeMonth(-1)} sx={{ color: 'text.secondary' }}>
-            <ChevronLeftIcon fontSize="large" />
-          </IconButton>
-          <Typography variant="h5" fontWeight={700}>
-            {monthLabel}
-          </Typography>
-          <IconButton size="large" onClick={() => changeMonth(1)} sx={{ color: 'text.secondary' }}>
-            <ChevronRightIcon fontSize="large" />
-          </IconButton>
-        </Box>
-
-        {/* 星期行 */}
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(7, 1fr)',
-            gap: 0.5,
-            mb: 1.5,
-          }}
-        >
-          {['日', '一', '二', '三', '四', '五', '六'].map((d) => (
-            <Box key={d} sx={{ textAlign: 'center', py: 0.75 }}>
-              <Typography variant="body1" color="text.disabled" fontWeight={600}>
-                {d}
-              </Typography>
-            </Box>
-          ))}
-        </Box>
-
-        {/* 每周行 */}
-        {weeks.map((week, wi) => (
-          <Box
-            key={wi}
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(7, 1fr)',
-              gap: 0.75,
-              mb: wi < weeks.length - 1 ? 0.75 : 0,
-            }}
-          >
-            {week.map((day, di) => {
-              if (day === null) {
-                return (
-                  <Box key={`e-${wi}-${di}`} sx={{ minHeight: 60 }} />
-                )
-              }
-              const date = getMonthDate(year, month, day)
-              const info = reviewMap.get(date)
-              const today = isToday(date)
-              const hasReviews = info && info.total > 0
-
-              return (
-                <Box
-                  key={date}
-                  onClick={() => handleDayClick(day)}
-                  sx={{
-                    minHeight: 60,
-                    p: 0.75,
-                    borderRadius: 2,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'flex-start',
-                    bgcolor: today
-                      ? 'primary.main'
-                      : hasReviews
-                        ? 'primary.light'
-                        : 'transparent',
-                    color: today
-                      ? '#fff'
-                      : hasReviews
-                        ? 'primary.dark'
-                        : 'text.primary',
-                    fontWeight: today ? 700 : hasReviews ? 600 : 400,
-                    border: !today ? '1px solid' : 'none',
-                    borderColor: hasReviews ? 'primary.200' : 'divider',
-                    '&:hover': {
-                      transform: 'translateY(-2px)',
-                      boxShadow: today
-                        ? '0px 4px 12px rgba(99,102,241,0.4)'
-                        : '0px 2px 8px rgba(0,0,0,0.06)',
-                    },
-                  }}
-                >
-                  <Typography variant="body1" fontWeight="inherit">
-                    {day}
-                  </Typography>
-                  {hasReviews && (
-                    <Typography
-                      variant="caption"
-                      fontWeight={600}
-                      color={today ? 'inherit' : 'text.secondary'}
-                      sx={{ opacity: today ? 0.9 : 0.7, mt: 0.25 }}
-                    >
-                      {info!.completed}/{info!.total}
-                    </Typography>
-                  )}
-                  {today && !hasReviews && (
-                    <Typography variant="caption" sx={{ opacity: 0.7, mt: 0.25 }}>
-                      今天
-                    </Typography>
-                  )}
-                </Box>
-              )
-            })}
-          </Box>
-        ))}
-      </Paper>
-
-      {/* 日期详情弹窗 */}
-      <Dialog
-        open={!!selectedDate}
-        onClose={() => setSelectedDate(null)}
-        fullWidth
-        maxWidth="sm"
-        PaperProps={{ sx: { borderRadius: 3, p: 1 } }}
-      >
-        <DialogTitle>
-          <Typography variant="h6" fontWeight={700}>
-            {selectedDate ? formatDateFull(selectedDate) : ''}
-            <Typography component="span" variant="h6" color="text.secondary" fontWeight={400}>
-              {' '}的复习
-            </Typography>
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          {selectedEntries.length === 0 ? (
-            <Box textAlign="center" py={4}>
-              <Typography color="text.disabled">当天没有复习安排</Typography>
-            </Box>
-          ) : (
-            <Box display="flex" flexDirection="column" gap={1.5}>
-              {selectedEntries.map((entry) => (
-                <Paper
-                  key={entry.id}
-                  variant="outlined"
-                  sx={{ p: 2.5, borderRadius: 2, borderColor: 'divider' }}
-                >
-                  <Typography variant="subtitle1" fontWeight={600} mb={1}>
-                    {entry.title}
-                  </Typography>
-                  {entry.tags.length > 0 && (
-                    <Box display="flex" gap={0.5} mb={1.5}>
-                      {entry.tags.map((tag) => (
-                        <Chip key={tag} label={tag} size="small" variant="outlined" />
-                      ))}
-                    </Box>
-                  )}
-                  <Box display="flex" gap={0.75} flexWrap="wrap">
-                    {entry.reviews.map((r) => (
-                      <Chip
-                        key={r.id}
-                        label={`第${r.reviewNumber}次`}
-                        size="small"
-                        color={r.completed ? 'success' : 'default'}
-                        variant={r.completed ? 'filled' : 'outlined'}
-                      />
-                    ))}
-                  </Box>
-                </Paper>
-              ))}
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setSelectedDate(null)} variant="outlined" size="large">
-            关闭
+      <div className="rounded-xl border bg-card p-4">
+        <div className="mb-4 flex items-center justify-between">
+          <Button size="sm" variant="outline" onClick={() => switchMonth(-1)}>
+            上个月
           </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
-  )
+          <p className="text-sm font-medium">{formatMonthLabel(monthCursor)}</p>
+          <Button size="sm" variant="outline" onClick={() => switchMonth(1)}>
+            下个月
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-7 gap-2 text-center text-xs text-muted-foreground">
+          {WEEKDAY_LABELS.map((label) => (
+            <div key={label}>{label}</div>
+          ))}
+        </div>
+
+        <div className="mt-2 grid grid-cols-7 gap-2">
+          {calendarCells.map((cell) => {
+            const count = reviewCountByDate[cell.key] ?? 0;
+            const isSelected = cell.key === selectedDateKey;
+
+            return (
+              <button
+                key={cell.key}
+                className={cn(
+                  "flex min-h-20 flex-col items-start justify-between rounded-lg border p-2 text-left text-xs transition",
+                  cell.inCurrentMonth ? "bg-background" : "bg-muted/40 text-muted-foreground",
+                  isSelected ? "border-primary ring-2 ring-primary/40" : "hover:bg-muted"
+                )}
+                onClick={() => setSelectedDateKey(cell.key)}
+                type="button"
+              >
+                <span className="text-sm font-medium">{cell.date.getDate()}</span>
+                {count > 0 ? (
+                  <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] text-primary">
+                    {count} 项
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-muted-foreground">无</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {error ? (
+        <p className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </p>
+      ) : null}
+
+      <div className="space-y-3">
+        <h3 className="text-lg font-medium">{selectedDateKey} 的任务明细</h3>
+        {loading ? <p className="text-sm text-muted-foreground">加载中...</p> : null}
+        {!loading && selectedDateReviews.length === 0 ? (
+          <p className="text-sm text-muted-foreground">当天没有任务。</p>
+        ) : null}
+
+        <div className="space-y-2">
+          {selectedDateReviews.map((review) => (
+            <article key={review.id} className="rounded-lg border bg-card p-3">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h4 className="font-medium">{entryTitles[review.entry_id] ?? review.entry_id}</h4>
+                  <p className="text-xs text-muted-foreground">复习 ID: {review.id.slice(0, 8)}</p>
+                </div>
+                <div className="text-right text-xs text-muted-foreground">
+                  <p>{new Date(review.scheduled_date).toLocaleTimeString()}</p>
+                  <p>{REVIEW_STATE_LABELS[review.state] ?? "Unknown"}</p>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
 }
