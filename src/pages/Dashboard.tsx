@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import ReviewCard from "@/components/ReviewCard";
+import { getUserEntries } from "@/lib/api/entries";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useI18n } from "@/hooks/useI18n";
 import { useAuthStore } from "@/stores/authStore";
@@ -21,6 +22,7 @@ export default function Dashboard() {
   } = useReviewStore((state) => state);
 
   const [activeReviewId, setActiveReviewId] = useState<string | null>(null);
+  const [entryTitles, setEntryTitles] = useState<Record<string, string>>({});
 
   useDocumentTitle(`${t("dashboardTitle")} - Memory Curve`);
 
@@ -29,7 +31,23 @@ export default function Dashboard() {
       return;
     }
 
-    void refresh(user.id);
+    const load = async () => {
+      await refresh(user.id);
+
+      const entriesResult = await getUserEntries(user.id);
+      if (entriesResult.error) {
+        return;
+      }
+
+      const titleById: Record<string, string> = {};
+      for (const entry of entriesResult.data ?? []) {
+        titleById[entry.id] = entry.title;
+      }
+
+      setEntryTitles(titleById);
+    };
+
+    void load();
   }, [refresh, user]);
 
   const counts = useMemo(() => {
@@ -56,25 +74,25 @@ export default function Dashboard() {
       <header>
         <h2 className="text-2xl font-semibold">{t("dashboardTitle")}</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          今日与逾期复习任务会根据 FSRS 调度自动刷新。
+          {t("dashboardSubtitle")}
         </p>
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border bg-card p-4">
-          <p className="text-xs text-muted-foreground">今日任务</p>
+        <div className="rounded-xl border bg-card p-4 shadow-sm">
+          <p className="text-xs text-muted-foreground">{t("dashboardMetricToday")}</p>
           <p className="mt-2 text-2xl font-semibold">{counts.today}</p>
         </div>
-        <div className="rounded-xl border bg-card p-4">
-          <p className="text-xs text-muted-foreground">逾期任务</p>
+        <div className="rounded-xl border bg-card p-4 shadow-sm">
+          <p className="text-xs text-muted-foreground">{t("dashboardMetricOverdue")}</p>
           <p className="mt-2 text-2xl font-semibold">{counts.overdue}</p>
         </div>
-        <div className="rounded-xl border bg-card p-4">
-          <p className="text-xs text-muted-foreground">累计已完成</p>
+        <div className="rounded-xl border bg-card p-4 shadow-sm">
+          <p className="text-xs text-muted-foreground">{t("dashboardMetricCompleted")}</p>
           <p className="mt-2 text-2xl font-semibold">{counts.completed}</p>
         </div>
-        <div className="rounded-xl border bg-card p-4">
-          <p className="text-xs text-muted-foreground">总复习数</p>
+        <div className="rounded-xl border bg-card p-4 shadow-sm">
+          <p className="text-xs text-muted-foreground">{t("dashboardMetricTotal")}</p>
           <p className="mt-2 text-2xl font-semibold">{counts.total}</p>
         </div>
       </div>
@@ -86,15 +104,16 @@ export default function Dashboard() {
       ) : null}
 
       <div className="space-y-3">
-        <h3 className="text-lg font-medium">今日待复习</h3>
+        <h3 className="text-lg font-medium">{t("dashboardSectionToday")}</h3>
         {todayReviews.length === 0 ? (
-          <p className="text-sm text-muted-foreground">今天没有待复习任务。</p>
+          <p className="text-sm text-muted-foreground">{t("dashboardSectionTodayEmpty")}</p>
         ) : (
           <div className="space-y-3">
             {todayReviews.map((review) => (
               <ReviewCard
                 key={review.id}
                 review={review}
+                entryTitle={entryTitles[review.entry_id]}
                 disabled={loading && activeReviewId === review.id}
                 onRate={onRate}
               />
@@ -104,15 +123,16 @@ export default function Dashboard() {
       </div>
 
       <div className="space-y-3">
-        <h3 className="text-lg font-medium">逾期任务</h3>
+        <h3 className="text-lg font-medium">{t("dashboardSectionOverdue")}</h3>
         {overdueReviews.length === 0 ? (
-          <p className="text-sm text-muted-foreground">没有逾期任务。</p>
+          <p className="text-sm text-muted-foreground">{t("dashboardSectionOverdueEmpty")}</p>
         ) : (
           <div className="space-y-3">
             {overdueReviews.map((review) => (
               <ReviewCard
                 key={review.id}
                 review={review}
+                entryTitle={entryTitles[review.entry_id]}
                 disabled={loading && activeReviewId === review.id}
                 onRate={onRate}
               />

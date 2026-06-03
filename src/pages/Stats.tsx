@@ -23,26 +23,24 @@ type DayMetric = {
 type HeatmapCell = {
   dateKey: string;
   label: string;
+  day: number;
   count: number;
 };
 
-const REVIEW_STATE_LABELS: Record<number, string> = {
-  0: "New",
-  1: "Learning",
-  2: "Review",
-  3: "Relearning",
-};
-
-function buildRecentDays(days: number): DayMetric[] {
+function buildRecentDays(days: number, locale: string): DayMetric[] {
   const list: DayMetric[] = [];
   const today = startOfDay(new Date());
+  const formatter = new Intl.DateTimeFormat(locale, {
+    month: "numeric",
+    day: "numeric",
+  });
 
   for (let offset = days - 1; offset >= 0; offset -= 1) {
     const date = addDays(today, -offset);
 
     list.push({
       dateKey: toDateKey(date),
-      label: `${date.getMonth() + 1}/${date.getDate()}`,
+      label: formatter.format(date),
       dueCount: 0,
       completedCount: 0,
       durationMs: 0,
@@ -75,7 +73,7 @@ function getHeatmapCellClass(count: number, maxCount: number): string {
 
 function StatsCard({ label, value, helper }: { label: string; value: string; helper?: string }) {
   return (
-    <div className="rounded-xl border bg-card p-4">
+    <div className="rounded-xl border bg-card p-4 shadow-sm">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="mt-2 text-2xl font-semibold">{value}</p>
       {helper ? <p className="mt-1 text-xs text-muted-foreground">{helper}</p> : null}
@@ -84,7 +82,7 @@ function StatsCard({ label, value, helper }: { label: string; value: string; hel
 }
 
 export default function StatsPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const user = useAuthStore((state) => state.user);
 
   const [loading, setLoading] = useState(false);
@@ -162,7 +160,7 @@ export default function StatsPage() {
   }, [stats]);
 
   const recentDayMetrics = useMemo(() => {
-    const rows = buildRecentDays(7);
+    const rows = buildRecentDays(7, locale);
     const indexByDate: Record<string, number> = {};
 
     rows.forEach((row, index) => {
@@ -191,7 +189,7 @@ export default function StatsPage() {
     }
 
     return rows;
-  }, [completedWindowReviews, scheduledWindowReviews]);
+  }, [completedWindowReviews, locale, scheduledWindowReviews]);
 
   const heatmapCells = useMemo<HeatmapCell[]>(() => {
     const rows: HeatmapCell[] = [];
@@ -212,13 +210,14 @@ export default function StatsPage() {
       const dateKey = toDateKey(date);
       rows.push({
         dateKey,
-        label: `${date.getMonth() + 1}/${date.getDate()}`,
+        label: new Intl.DateTimeFormat(locale, { month: "numeric", day: "numeric" }).format(date),
+        day: date.getDate(),
         count: completedByDate[dateKey] ?? 0,
       });
     }
 
     return rows;
-  }, [completedWindowReviews]);
+  }, [completedWindowReviews, locale]);
 
   const heatmapMax = useMemo(() => {
     return heatmapCells.reduce((max, cell) => Math.max(max, cell.count), 0);
@@ -279,31 +278,43 @@ export default function StatsPage() {
     }, 0);
   }, [recentDayMetrics]);
 
+  const reviewStateLabels = useMemo<Record<number, string>>(
+    () => ({
+      0: t("reviewStateNew"),
+      1: t("reviewStateLearning"),
+      2: t("reviewStateReview"),
+      3: t("reviewStateRelearning"),
+    }),
+    [t]
+  );
+
   return (
     <section className="space-y-6">
       <header className="space-y-1">
         <h2 className="text-2xl font-semibold">{t("statsTitle")}</h2>
-        <p className="text-sm text-muted-foreground">
-          查看完成率、工作量、热力图和遗忘曲线趋势。
-        </p>
+        <p className="text-sm text-muted-foreground">{t("statsSubtitle")}</p>
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatsCard label="总任务" value={String(stats?.total ?? 0)} />
+        <StatsCard label={t("statsMetricTotal")} value={String(stats?.total ?? 0)} />
         <StatsCard
-          label="完成率"
+          label={t("statsMetricCompletion")}
           value={`${completionRate.toFixed(1)}%`}
           helper={`${stats?.completed ?? 0} / ${stats?.total ?? 0}`}
         />
         <StatsCard
-          label="今日待处理"
+          label={t("statsMetricPendingToday")}
           value={String((stats?.dueToday ?? 0) + (stats?.overdue ?? 0))}
-          helper={`今日 ${stats?.dueToday ?? 0} · 逾期 ${stats?.overdue ?? 0}`}
+          helper={
+            locale === "zh-CN"
+              ? `今日 ${stats?.dueToday ?? 0} · 逾期 ${stats?.overdue ?? 0}`
+              : `Today ${stats?.dueToday ?? 0} · Overdue ${stats?.overdue ?? 0}`
+          }
         />
         <StatsCard
-          label="平均时长"
+          label={t("statsMetricAverageDuration")}
           value={formatMinutes(averageDurationMs)}
-          helper={`累计 ${formatMinutes(stats?.totalDurationMs ?? 0)}`}
+          helper={`${t("statsMetricCumulative")} ${formatMinutes(stats?.totalDurationMs ?? 0)}`}
         />
       </div>
 
@@ -313,9 +324,9 @@ export default function StatsPage() {
         </p>
       ) : null}
 
-      <div className="space-y-3 rounded-xl border bg-card p-4">
-        <h3 className="text-lg font-medium">近 7 天趋势</h3>
-        {loading ? <p className="text-sm text-muted-foreground">加载中...</p> : null}
+      <div className="space-y-3 rounded-xl border bg-card p-4 shadow-sm">
+        <h3 className="text-lg font-medium">{t("statsSectionTrend7d")}</h3>
+        {loading ? <p className="text-sm text-muted-foreground">{t("calendarLoading")}</p> : null}
 
         <div className="space-y-3">
           {recentDayMetrics.map((row) => {
@@ -327,17 +338,17 @@ export default function StatsPage() {
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>{row.label}</span>
                   <span>
-                    Due {row.dueCount} · Done {row.completedCount} · {formatMinutes(row.durationMs)}
+                    {t("globalDue")} {row.dueCount} · {t("globalDone")} {row.completedCount} · {t("globalDuration")} {formatMinutes(row.durationMs)}
                   </span>
                 </div>
                 <div className="space-y-1">
-                  <div className="h-2 rounded bg-sky-100">
+                  <div className="h-2 rounded bg-primary/20">
                     <div
-                      className="h-2 rounded bg-sky-500"
+                      className="h-2 rounded bg-primary"
                       style={{ width: `${dueWidth}%` }}
                     />
                   </div>
-                  <div className="h-2 rounded bg-emerald-100">
+                  <div className="h-2 rounded bg-emerald-500/20">
                     <div
                       className="h-2 rounded bg-emerald-500"
                       style={{ width: `${completedWidth}%` }}
@@ -350,11 +361,9 @@ export default function StatsPage() {
         </div>
       </div>
 
-      <div className="space-y-3 rounded-xl border bg-card p-4">
-        <h3 className="text-lg font-medium">近 35 天热力图</h3>
-        <p className="text-xs text-muted-foreground">
-          每个方块表示当天完成数量，颜色越深说明完成越多。
-        </p>
+      <div className="space-y-3 rounded-xl border bg-card p-4 shadow-sm">
+        <h3 className="text-lg font-medium">{t("statsSectionHeatmap")}</h3>
+        <p className="text-xs text-muted-foreground">{t("statsHeatmapHint")}</p>
 
         <div className="grid grid-cols-7 gap-1">
           {heatmapCells.map((cell) => (
@@ -366,29 +375,49 @@ export default function StatsPage() {
               )}`}
               title={`${cell.dateKey}: ${cell.count}`}
             >
-              {cell.label.split("/").pop()}
+              {cell.day}
             </div>
           ))}
         </div>
       </div>
 
-      <div className="space-y-3 rounded-xl border bg-card p-4">
-        <h3 className="text-lg font-medium">遗忘曲线（未来 14 天估算）</h3>
-        <p className="text-xs text-muted-foreground">
-          基于已排期卡片稳定度估算 retention，帮助你判断未来复习压力。
-        </p>
+      <div className="space-y-3 rounded-xl border bg-card p-4 shadow-sm">
+        <h3 className="text-lg font-medium">{t("statsSectionCurve")}</h3>
+        <p className="text-xs text-muted-foreground">{t("statsCurveHint")}</p>
 
         <div className="rounded-lg border bg-background p-3">
           <svg viewBox="0 0 100 100" className="h-44 w-full">
             <defs>
               <linearGradient id="curveFill" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.35" />
-                <stop offset="100%" stopColor="#0ea5e9" stopOpacity="0.03" />
+                <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.35" />
+                <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.03" />
               </linearGradient>
             </defs>
-            <line x1="0" y1="90" x2="100" y2="90" stroke="#94a3b8" strokeWidth="0.4" />
-            <line x1="0" y1="50" x2="100" y2="50" stroke="#cbd5e1" strokeWidth="0.3" />
-            <line x1="0" y1="10" x2="100" y2="10" stroke="#cbd5e1" strokeWidth="0.3" />
+            <line
+              x1="0"
+              y1="90"
+              x2="100"
+              y2="90"
+              stroke="hsl(var(--muted-foreground))"
+              strokeOpacity="0.45"
+              strokeWidth="0.4"
+            />
+            <line
+              x1="0"
+              y1="50"
+              x2="100"
+              y2="50"
+              stroke="hsl(var(--border))"
+              strokeWidth="0.3"
+            />
+            <line
+              x1="0"
+              y1="10"
+              x2="100"
+              y2="10"
+              stroke="hsl(var(--border))"
+              strokeWidth="0.3"
+            />
 
             {forgettingCurvePath ? (
               <>
@@ -397,7 +426,12 @@ export default function StatsPage() {
                   fill="url(#curveFill)"
                   stroke="none"
                 />
-                <path d={forgettingCurvePath} fill="none" stroke="#0ea5e9" strokeWidth="1.2" />
+                <path
+                  d={forgettingCurvePath}
+                  fill="none"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth="1.2"
+                />
               </>
             ) : null}
           </svg>
@@ -405,26 +439,26 @@ export default function StatsPage() {
 
         <div className="grid gap-2 sm:grid-cols-3">
           <div className="rounded-lg border bg-background p-3">
-            <p className="text-xs text-muted-foreground">D0 预计 retention</p>
+            <p className="text-xs text-muted-foreground">{t("statsRetentionD0")}</p>
             <p className="mt-1 text-lg font-semibold">{(retentionNow * 100).toFixed(1)}%</p>
           </div>
           <div className="rounded-lg border bg-background p-3">
-            <p className="text-xs text-muted-foreground">D7 预计 retention</p>
+            <p className="text-xs text-muted-foreground">{t("statsRetentionD7")}</p>
             <p className="mt-1 text-lg font-semibold">{(retentionDay7 * 100).toFixed(1)}%</p>
           </div>
           <div className="rounded-lg border bg-background p-3">
-            <p className="text-xs text-muted-foreground">D14 预计 retention</p>
+            <p className="text-xs text-muted-foreground">{t("statsRetentionD14")}</p>
             <p className="mt-1 text-lg font-semibold">{(retentionDay14 * 100).toFixed(1)}%</p>
           </div>
         </div>
       </div>
 
-      <div className="rounded-xl border bg-card p-4">
-        <h3 className="text-lg font-medium">状态分布（近 7 天任务）</h3>
+      <div className="rounded-xl border bg-card p-4 shadow-sm">
+        <h3 className="text-lg font-medium">{t("statsSectionStateDistribution")}</h3>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           {[0, 1, 2, 3].map((state) => (
             <div key={state} className="rounded-lg border bg-background p-3">
-              <p className="text-xs text-muted-foreground">{REVIEW_STATE_LABELS[state]}</p>
+              <p className="text-xs text-muted-foreground">{reviewStateLabels[state]}</p>
               <p className="mt-1 text-xl font-semibold">{stateDistribution[state] ?? 0}</p>
             </div>
           ))}

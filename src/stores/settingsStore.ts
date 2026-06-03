@@ -58,7 +58,21 @@ function readLocaleFromStorage(): Locale {
   }
 
   const value = window.localStorage.getItem(STORAGE_KEY_LOCALE);
-  return value === "en-US" ? "en-US" : "zh-CN";
+  if (value === "zh-CN" || value === "en-US") {
+    return value;
+  }
+
+  const browserLocales = [window.navigator.language, ...(window.navigator.languages ?? [])]
+    .filter(Boolean)
+    .map((item) => item.toLowerCase());
+
+  const preferred = browserLocales.find((item) => item.startsWith("zh") || item.startsWith("en"));
+
+  if (preferred?.startsWith("en")) {
+    return "en-US";
+  }
+
+  return "zh-CN";
 }
 
 function readThemeFromStorage(): ThemeMode {

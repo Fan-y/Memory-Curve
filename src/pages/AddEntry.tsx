@@ -99,7 +99,7 @@ export default function AddEntry() {
     setCreatingTag(false);
 
     if (result.error || !result.data) {
-      setError(result.error ?? "标签创建失败。");
+      setError(result.error ?? t("addEntryErrorTagCreate"));
       return;
     }
 
@@ -118,12 +118,12 @@ export default function AddEntry() {
     event.preventDefault();
 
     if (!user) {
-      setError("当前未登录，无法创建条目。");
+      setError(t("addEntryErrorNotLoggedIn"));
       return;
     }
 
     if (!title.trim()) {
-      setError("标题不能为空。");
+      setError(t("addEntryErrorTitleRequired"));
       return;
     }
 
@@ -140,7 +140,7 @@ export default function AddEntry() {
 
     if (createEntryResult.error || !createEntryResult.data) {
       setLoading(false);
-      setError(createEntryResult.error ?? "条目创建失败。");
+      setError(createEntryResult.error ?? t("addEntryErrorCreateFailed"));
       return;
     }
 
@@ -174,7 +174,7 @@ export default function AddEntry() {
     setContent("");
     setSource("");
     setSelectedTagIds([]);
-    setMessage("条目已创建，并生成了首条复习任务。");
+    setMessage(t("addEntrySuccessCreated"));
 
     await loadEntries();
   };
@@ -184,44 +184,44 @@ export default function AddEntry() {
       <header>
         <h2 className="text-2xl font-semibold">{t("addEntryTitle")}</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          提交后会自动生成第一条复习任务。
+          {t("addEntrySubtitle")}
         </p>
       </header>
 
       <form className="space-y-4 rounded-xl border bg-card p-4" onSubmit={onSubmit}>
         <div className="space-y-2">
-          <label className="text-sm font-medium">标题</label>
+          <label className="text-sm font-medium">{t("addEntryLabelTitle")}</label>
           <Input
-            placeholder="例如：TCP 三次握手"
+            placeholder={t("addEntryPlaceholderTitle")}
             value={title}
             onChange={(event) => setTitle(event.target.value)}
           />
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">内容（Markdown）</label>
+          <label className="text-sm font-medium">{t("addEntryLabelContent")}</label>
           <textarea
             className="min-h-36 w-full rounded-md border border-input bg-card px-3 py-2 text-sm outline-none ring-primary focus:ring-2"
-            placeholder="写下核心知识点..."
+            placeholder={t("addEntryPlaceholderContent")}
             value={content}
             onChange={(event) => setContent(event.target.value)}
           />
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">来源（可选）</label>
+          <label className="text-sm font-medium">{t("addEntryLabelSourceOptional")}</label>
           <Input
-            placeholder="书籍、课程、文章链接..."
+            placeholder={t("addEntryPlaceholderSource")}
             value={source}
             onChange={(event) => setSource(event.target.value)}
           />
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">标签（可选）</label>
+          <label className="text-sm font-medium">{t("addEntryLabelTagsOptional")}</label>
           <div className="flex flex-wrap gap-2">
             {tags.length === 0 ? (
-              <p className="text-xs text-muted-foreground">暂无标签，先创建一个。</p>
+              <p className="text-xs text-muted-foreground">{t("addEntryNoTags")}</p>
             ) : (
               tags.map((tag) => {
                 const selected = selectedTagIds.includes(tag.id);
@@ -247,7 +247,7 @@ export default function AddEntry() {
           <div className="flex flex-wrap items-center gap-2">
             <Input
               className="max-w-xs"
-              placeholder="新标签名..."
+              placeholder={t("addEntryPlaceholderNewTag")}
               value={newTagName}
               onChange={(event) => setNewTagName(event.target.value)}
             />
@@ -260,7 +260,7 @@ export default function AddEntry() {
                 void onCreateTag();
               }}
             >
-              {creatingTag ? "创建中..." : "创建标签"}
+              {creatingTag ? t("addEntryCreatingTag") : t("addEntryCreateTag")}
             </Button>
           </div>
         </div>
@@ -269,21 +269,21 @@ export default function AddEntry() {
         {message ? <p className="text-sm text-emerald-600">{message}</p> : null}
 
         <Button type="submit" disabled={loading}>
-          {loading ? "保存中..." : "保存条目"}
+          {loading ? t("addEntrySaving") : t("addEntrySave")}
         </Button>
       </form>
 
       <div className="space-y-3">
-        <h3 className="text-lg font-medium">最近条目</h3>
+        <h3 className="text-lg font-medium">{t("addEntryRecent")}</h3>
         {entries.length === 0 ? (
-          <p className="text-sm text-muted-foreground">还没有条目，先创建一个吧。</p>
+          <p className="text-sm text-muted-foreground">{t("addEntryEmpty")}</p>
         ) : (
           <div className="space-y-2">
             {entries.slice(0, 8).map((entry) => (
               <article key={entry.id} className="rounded-lg border bg-card p-3">
                 <h4 className="font-medium">{entry.title}</h4>
                 <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                  {entry.content_md || "(无内容)"}
+                  {entry.content_md || t("addEntryNoContent")}
                 </p>
               </article>
             ))}

@@ -30,18 +30,18 @@ import { endOfDay, startOfDay } from "@/lib/dates";
 type SourceFilter = "all" | "with-source" | "without-source";
 type SortOrder = "created_desc" | "created_asc" | "title_asc" | "title_desc";
 
-const FILTER_LABELS: Record<SourceFilter, string> = {
-  all: "全部",
-  "with-source": "有来源",
-  "without-source": "无来源",
-};
-
 export default function History() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const user = useAuthStore((state) => state.user);
   const createInitialReviewForEntry = useReviewStore(
     (state) => state.createInitialReviewForEntry
   );
+
+  const filterLabels: Record<SourceFilter, string> = {
+    all: t("historyFilterAll"),
+    "with-source": t("historyFilterWithSource"),
+    "without-source": t("historyFilterWithoutSource"),
+  };
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -181,7 +181,7 @@ export default function History() {
       if (!tagId) {
         const createResult = await createTag({ user_id: userId, name: normalizedName });
         if (createResult.error || !createResult.data) {
-          throw new Error(createResult.error ?? `创建标签失败：${normalizedName}`);
+          throw new Error(createResult.error ?? `${t("historyErrorTagCreateFailedPrefix")} ${normalizedName}`);
         }
 
         tagId = createResult.data.id;
@@ -208,7 +208,7 @@ export default function History() {
       const payload = parseEntriesJson(content);
 
       if (payload.length === 0) {
-        setMessage("导入文件没有可导入条目。");
+        setMessage(t("historyImportNoItems"));
         return;
       }
 
@@ -259,18 +259,24 @@ export default function History() {
       await loadEntries(keyword);
 
       if (failedTitles.length > 0) {
-        setMessage(
-          `导入完成：成功 ${successCount} 条，失败 ${failedTitles.length} 条（${failedTitles
-            .slice(0, 3)
-            .join(" / ")}）。`
-        );
+        const failedPreview = failedTitles.slice(0, 3).join(" / ");
+        const summary =
+          locale === "zh-CN"
+            ? `${t("historyImportDoneWithFailures")} ${successCount} 条，失败 ${failedTitles.length} 条（${failedPreview}）。`
+            : `${t("historyImportDoneWithFailures")} ${successCount}, failed ${failedTitles.length} (${failedPreview}).`;
+
+        setMessage(summary);
         return;
       }
 
-      setMessage(`导入完成，共成功导入 ${successCount} 条。`);
+      setMessage(
+        locale === "zh-CN"
+          ? `${t("historyImportDone")} ${successCount} 条。`
+          : `${t("historyImportDone")} ${successCount}.`
+      );
     } catch (importError) {
       const messageText =
-        importError instanceof Error ? importError.message : "导入失败，请检查文件格式。";
+        importError instanceof Error ? importError.message : t("historyImportFailed");
       setError(messageText);
     } finally {
       setImporting(false);
@@ -303,7 +309,7 @@ export default function History() {
 
     const nextTitle = editTitle.trim();
     if (!nextTitle) {
-      setError("标题不能为空。");
+      setError(t("historyErrorTitleRequired"));
       return;
     }
 
@@ -324,7 +330,7 @@ export default function History() {
       return;
     }
 
-    setMessage("条目已更新。");
+    setMessage(t("historyUpdated"));
     resetEdit();
     await loadEntries(keyword);
   };
@@ -334,7 +340,11 @@ export default function History() {
       return;
     }
 
-    const confirmed = window.confirm(`确认删除条目“${entry.title}”吗？`);
+    const confirmed = window.confirm(
+      locale === "zh-CN"
+        ? `${t("historyConfirmDelete")}“${entry.title}”吗？`
+        : `${t("historyConfirmDelete")} "${entry.title}"?`
+    );
     if (!confirmed) {
       return;
     }
@@ -356,7 +366,7 @@ export default function History() {
       resetEdit();
     }
 
-    setMessage("条目已删除。");
+    setMessage(t("historyDeleted"));
     await loadEntries(keyword);
   };
 
@@ -364,33 +374,31 @@ export default function History() {
     <section className="space-y-6">
       <header className="space-y-1">
         <h2 className="text-2xl font-semibold">{t("historyTitle")}</h2>
-        <p className="text-sm text-muted-foreground">
-          支持关键词防抖搜索、高级筛选、编辑删除与 JSON/CSV 导入导出。
-        </p>
+        <p className="text-sm text-muted-foreground">{t("historySubtitle")}</p>
       </header>
 
       <div className="space-y-3 rounded-xl border bg-card p-4">
         <Input
-          placeholder="搜索标题或内容..."
+          placeholder={t("historySearchPlaceholder")}
           value={keyword}
           onChange={(event) => setKeyword(event.target.value)}
         />
         <div className="flex flex-wrap gap-2">
-          {(Object.keys(FILTER_LABELS) as SourceFilter[]).map((filter) => (
+          {(Object.keys(filterLabels) as SourceFilter[]).map((filter) => (
             <Button
               key={filter}
               variant={sourceFilter === filter ? "default" : "outline"}
               size="sm"
               onClick={() => setSourceFilter(filter)}
             >
-              {FILTER_LABELS[filter]}
+              {filterLabels[filter]}
             </Button>
           ))}
         </div>
 
         <div className="grid gap-2 sm:grid-cols-3">
           <label className="space-y-1 text-xs text-muted-foreground">
-            <span>开始日期</span>
+            <span>{t("historyStartDate")}</span>
             <Input
               type="date"
               value={dateStart}
@@ -398,7 +406,7 @@ export default function History() {
             />
           </label>
           <label className="space-y-1 text-xs text-muted-foreground">
-            <span>结束日期</span>
+            <span>{t("historyEndDate")}</span>
             <Input
               type="date"
               value={dateEnd}
@@ -406,30 +414,30 @@ export default function History() {
             />
           </label>
           <label className="space-y-1 text-xs text-muted-foreground">
-            <span>排序</span>
+            <span>{t("historySort")}</span>
             <select
               className="h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm"
               value={sortOrder}
               onChange={(event) => setSortOrder(event.target.value as SortOrder)}
             >
-              <option value="created_desc">创建时间（新到旧）</option>
-              <option value="created_asc">创建时间（旧到新）</option>
-              <option value="title_asc">标题（A-Z）</option>
-              <option value="title_desc">标题（Z-A）</option>
+              <option value="created_desc">{t("historySortCreatedDesc")}</option>
+              <option value="created_asc">{t("historySortCreatedAsc")}</option>
+              <option value="title_asc">{t("historySortTitleAsc")}</option>
+              <option value="title_desc">{t("historySortTitleDesc")}</option>
             </select>
           </label>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" size="sm" variant="outline" onClick={onExportJson}>
-            导出 JSON
+            {t("historyExportJson")}
           </Button>
           <Button type="button" size="sm" variant="outline" onClick={onExportCsv}>
-            导出 CSV
+            {t("historyExportCsv")}
           </Button>
 
           <label className="flex cursor-pointer items-center gap-2 rounded-md border border-input px-3 py-2 text-xs text-muted-foreground hover:bg-muted">
-            <span>{importing ? "导入中..." : "导入 JSON"}</span>
+            <span>{importing ? t("historyImporting") : t("historyImportJson")}</span>
             <input
               type="file"
               accept="application/json"
@@ -459,19 +467,19 @@ export default function History() {
       {editingEntry ? (
         <form className="space-y-3 rounded-xl border bg-card p-4" onSubmit={onSubmitEdit}>
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-base font-medium">编辑条目</h3>
+            <h3 className="text-base font-medium">{t("historyEditTitle")}</h3>
             <Button type="button" variant="ghost" size="sm" onClick={resetEdit}>
-              取消
+              {t("historyCancel")}
             </Button>
           </div>
 
           <div className="space-y-1">
-            <label className="text-sm font-medium">标题</label>
+            <label className="text-sm font-medium">{t("historyLabelTitle")}</label>
             <Input value={editTitle} onChange={(event) => setEditTitle(event.target.value)} />
           </div>
 
           <div className="space-y-1">
-            <label className="text-sm font-medium">内容（Markdown）</label>
+            <label className="text-sm font-medium">{t("historyLabelContent")}</label>
             <textarea
               className="min-h-36 w-full rounded-md border border-input bg-card px-3 py-2 text-sm outline-none ring-primary focus:ring-2"
               value={editContent}
@@ -480,21 +488,23 @@ export default function History() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-sm font-medium">来源（可选）</label>
+            <label className="text-sm font-medium">{t("historyLabelSourceOptional")}</label>
             <Input value={editSource} onChange={(event) => setEditSource(event.target.value)} />
           </div>
 
           <Button type="submit" disabled={saving}>
-            {saving ? "保存中..." : "保存修改"}
+            {saving ? t("historySaving") : t("historySave")}
           </Button>
         </form>
       ) : null}
 
       <div className="space-y-3">
-        <h3 className="text-lg font-medium">条目列表（{filteredEntries.length}）</h3>
-        {loading ? <p className="text-sm text-muted-foreground">加载中...</p> : null}
+        <h3 className="text-lg font-medium">
+          {t("historyListTitle")} ({filteredEntries.length})
+        </h3>
+        {loading ? <p className="text-sm text-muted-foreground">{t("historyLoading")}</p> : null}
         {!loading && filteredEntries.length === 0 ? (
-          <p className="text-sm text-muted-foreground">没有匹配的条目。</p>
+          <p className="text-sm text-muted-foreground">{t("historyNoMatch")}</p>
         ) : null}
 
         <div className="space-y-3">
@@ -507,16 +517,16 @@ export default function History() {
                   <div className="space-y-1">
                     <h4 className="font-medium">{entry.title}</h4>
                     <p className="text-xs text-muted-foreground">
-                      创建于 {new Date(entry.created_at).toLocaleString()}
+                      {t("historyMetaCreatedAt")} {new Date(entry.created_at).toLocaleString(locale)}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      来源：{entry.source ? entry.source : "(未填写)"}
+                      {t("historyMetaSource")}: {entry.source ? entry.source : t("historySourceEmpty")}
                     </p>
                   </div>
 
                   <div className="flex items-center gap-2">
                     <Button size="sm" variant="outline" onClick={() => startEdit(entry)}>
-                      编辑
+                      {t("historyEdit")}
                     </Button>
                     <Button
                       size="sm"
@@ -526,13 +536,15 @@ export default function History() {
                         void onDelete(entry);
                       }}
                     >
-                      {deletingEntryId === entry.id ? "删除中..." : "删除"}
+                      {deletingEntryId === entry.id ? t("historyDeleting") : t("historyDelete")}
                     </Button>
                   </div>
                 </div>
 
                 <p className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">
-                  {preview ? `${preview.slice(0, 220)}${preview.length > 220 ? "..." : ""}` : "(无内容)"}
+                  {preview
+                    ? `${preview.slice(0, 220)}${preview.length > 220 ? "..." : ""}`
+                    : t("historyNoContent")}
                 </p>
               </article>
             );

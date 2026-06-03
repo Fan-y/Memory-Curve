@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit",
     "test": "vitest run",
-    "smoke:workflow": "node scripts/smoke-workflow.mjs"
+    "smoke:workflow": "node scripts/smoke-workflow.mjs",
+    "test:ui": "playwright test tests/ui-acceptance.spec.ts --reporter=line --workers=1"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.2",
@@ -25,6 +26,7 @@
     "zustand": "^5.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "1.54.0",
     "@types/node": "^22.10.1",
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.2",

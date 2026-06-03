@@ -4,9 +4,11 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { useI18n } from "@/hooks/useI18n";
 import { useAuthStore } from "@/stores/authStore";
 
 export default function LoginPage() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const signIn = useAuthStore((state) => state.signIn);
@@ -18,7 +20,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  useDocumentTitle("登录 - Memory Curve");
+  useDocumentTitle(`${t("loginTitle")} - Memory Curve`);
 
   useEffect(() => {
     if (user) {
@@ -30,7 +32,7 @@ export default function LoginPage() {
     event.preventDefault();
 
     if (!email || !password) {
-      setError("请先填写邮箱和密码。");
+      setError(t("loginValidationMissingCredentials"));
       return;
     }
 
@@ -45,10 +47,6 @@ export default function LoginPage() {
     if (result.error) {
       setError(result.error);
       return;
-    }
-
-    if (result.message) {
-      setMessage(result.message);
     }
 
     navigate("/", { replace: true });
@@ -67,19 +65,19 @@ export default function LoginPage() {
       return;
     }
 
-    if (result.message) {
-      setMessage(result.message);
+    if (result.code === "AUTH_OAUTH_REDIRECTING") {
+      setMessage(t("loginOAuthRedirecting"));
     }
   };
 
   return (
     <div>
-      <h2 className="text-xl font-semibold">欢迎回来</h2>
-      <p className="mt-1 text-sm text-muted-foreground">使用邮箱密码登录，或直接使用第三方账号。</p>
+      <h2 className="text-xl font-semibold">{t("loginHeading")}</h2>
+      <p className="mt-1 text-sm text-muted-foreground">{t("loginSubtitle")}</p>
 
       <form className="mt-6 space-y-4" onSubmit={onSubmit}>
         <div className="space-y-2">
-          <label className="text-sm font-medium">邮箱</label>
+          <label className="text-sm font-medium">{t("authEmailLabel")}</label>
           <Input
             type="email"
             placeholder="name@example.com"
@@ -89,10 +87,10 @@ export default function LoginPage() {
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">密码</label>
+          <label className="text-sm font-medium">{t("authPasswordLabel")}</label>
           <Input
             type="password"
-            placeholder="至少 6 位"
+            placeholder={t("authPasswordPlaceholder")}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
           />
@@ -102,7 +100,7 @@ export default function LoginPage() {
         {message ? <p className="text-sm text-emerald-600">{message}</p> : null}
 
         <Button className="w-full" type="submit" disabled={submitting}>
-          {submitting ? "提交中..." : "登录"}
+          {submitting ? t("authSubmitting") : t("loginSubmit")}
         </Button>
 
         <div className="grid grid-cols-2 gap-2">
@@ -131,12 +129,12 @@ export default function LoginPage() {
         </div>
       </form>
 
-      <div className="mt-4 flex items-center justify-between text-sm">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm">
         <Link className="text-primary hover:underline" to="/auth/reset-password">
-          忘记密码？
+          {t("loginForgotPassword")}
         </Link>
         <Link className="text-primary hover:underline" to="/auth/signup">
-          创建账号
+          {t("loginCreateAccount")}
         </Link>
       </div>
     </div>

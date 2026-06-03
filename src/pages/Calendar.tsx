@@ -14,15 +14,6 @@ type CalendarCell = {
   inCurrentMonth: boolean;
 };
 
-const WEEKDAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
-
-const REVIEW_STATE_LABELS: Record<number, string> = {
-  0: "New",
-  1: "Learning",
-  2: "Review",
-  3: "Relearning",
-};
-
 function toDateKey(value: Date | string): string {
   const date = typeof value === "string" ? new Date(value) : value;
   const year = date.getFullYear();
@@ -65,12 +56,15 @@ function buildCalendarCells(month: Date): CalendarCell[] {
   return cells;
 }
 
-function formatMonthLabel(month: Date): string {
-  return `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}`;
+function formatMonthLabel(month: Date, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    year: "numeric",
+    month: "long",
+  }).format(month);
 }
 
 export default function CalendarPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const user = useAuthStore((state) => state.user);
 
   const [monthCursor, setMonthCursor] = useState(() => {
@@ -104,6 +98,24 @@ export default function CalendarPage() {
       .filter((review) => toDateKey(review.scheduled_date) === selectedDateKey)
       .sort((left, right) => left.scheduled_date.localeCompare(right.scheduled_date));
   }, [reviews, selectedDateKey]);
+
+  const weekdayLabels = useMemo(() => {
+    if (locale === "zh-CN") {
+      return ["日", "一", "二", "三", "四", "五", "六"];
+    }
+
+    return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  }, [locale]);
+
+  const reviewStateLabels = useMemo<Record<number, string>>(
+    () => ({
+      0: t("reviewStateNew"),
+      1: t("reviewStateLearning"),
+      2: t("reviewStateReview"),
+      3: t("reviewStateRelearning"),
+    }),
+    [t]
+  );
 
   useEffect(() => {
     if (!user) {
@@ -141,44 +153,56 @@ export default function CalendarPage() {
 
   const switchMonth = (delta: number) => {
     const next = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + delta, 1);
+    const selectedDay = Number.parseInt(selectedDateKey.slice(-2), 10) || 1;
+    const maxDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+
+    const nextSelectedDate = new Date(
+      next.getFullYear(),
+      next.getMonth(),
+      Math.min(selectedDay, maxDay)
+    );
+
     setMonthCursor(next);
-    setSelectedDateKey(toDateKey(next));
+    setSelectedDateKey(toDateKey(nextSelectedDate));
   };
 
   return (
     <section className="space-y-6">
       <header className="space-y-1">
         <h2 className="text-2xl font-semibold">{t("calendarTitle")}</h2>
-        <p className="text-sm text-muted-foreground">按日查看任务量，并查看每日任务明细。</p>
+        <p className="text-sm text-muted-foreground">{t("calendarSubtitle")}</p>
       </header>
 
-      <div className="rounded-xl border bg-card p-4">
+      <div className="rounded-xl border bg-card p-4 shadow-sm">
         <div className="mb-4 flex items-center justify-between">
           <Button size="sm" variant="outline" onClick={() => switchMonth(-1)}>
-            上个月
+            {t("calendarPrevMonth")}
           </Button>
-          <p className="text-sm font-medium">{formatMonthLabel(monthCursor)}</p>
+          <p className="text-sm font-medium">{formatMonthLabel(monthCursor, locale)}</p>
           <Button size="sm" variant="outline" onClick={() => switchMonth(1)}>
-            下个月
+            {t("calendarNextMonth")}
           </Button>
         </div>
 
-        <div className="grid grid-cols-7 gap-2 text-center text-xs text-muted-foreground">
-          {WEEKDAY_LABELS.map((label) => (
+        <div className="grid grid-cols-7 gap-1 text-center text-xs text-muted-foreground sm:gap-2 sm:text-sm">
+          {weekdayLabels.map((label) => (
             <div key={label}>{label}</div>
           ))}
         </div>
 
-        <div className="mt-2 grid grid-cols-7 gap-2">
+        <div className="mt-2 grid grid-cols-7 gap-1 sm:gap-2">
           {calendarCells.map((cell) => {
             const count = reviewCountByDate[cell.key] ?? 0;
             const isSelected = cell.key === selectedDateKey;
+            const ariaLabel =
+              locale === "zh-CN" ? `${cell.key}，${count} 项任务` : `${cell.key}, ${count} tasks`;
 
             return (
               <button
                 key={cell.key}
+                aria-label={ariaLabel}
                 className={cn(
-                  "flex min-h-20 flex-col items-start justify-between rounded-lg border p-2 text-left text-xs transition",
+                  "flex min-h-20 flex-col items-start justify-between rounded-lg border p-2.5 text-left text-sm transition",
                   cell.inCurrentMonth ? "bg-background" : "bg-muted/40 text-muted-foreground",
                   isSelected ? "border-primary ring-2 ring-primary/40" : "hover:bg-muted"
                 )}
@@ -187,11 +211,11 @@ export default function CalendarPage() {
               >
                 <span className="text-sm font-medium">{cell.date.getDate()}</span>
                 {count > 0 ? (
-                  <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[11px] text-primary">
-                    {count} 项
+                  <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
+                    {locale === "zh-CN" ? `${count} 项` : `${count} tasks`}
                   </span>
                 ) : (
-                  <span className="text-[11px] text-muted-foreground">无</span>
+                  <span className="text-xs text-muted-foreground">{t("calendarNoTask")}</span>
                 )}
               </button>
             );
@@ -206,23 +230,29 @@ export default function CalendarPage() {
       ) : null}
 
       <div className="space-y-3">
-        <h3 className="text-lg font-medium">{selectedDateKey} 的任务明细</h3>
-        {loading ? <p className="text-sm text-muted-foreground">加载中...</p> : null}
+        <h3 className="text-lg font-medium">
+          {selectedDateKey} · {t("calendarTaskDetails")}
+        </h3>
+        {loading ? <p className="text-sm text-muted-foreground">{t("calendarLoading")}</p> : null}
         {!loading && selectedDateReviews.length === 0 ? (
-          <p className="text-sm text-muted-foreground">当天没有任务。</p>
+          <p className="text-sm text-muted-foreground">{t("calendarNoTasksForDay")}</p>
         ) : null}
 
         <div className="space-y-2">
           {selectedDateReviews.map((review) => (
-            <article key={review.id} className="rounded-lg border bg-card p-3">
+            <article key={review.id} className="rounded-lg border bg-card p-3 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <h4 className="font-medium">{entryTitles[review.entry_id] ?? review.entry_id}</h4>
-                  <p className="text-xs text-muted-foreground">复习 ID: {review.id.slice(0, 8)}</p>
+                  <h4 className="font-medium">
+                    {entryTitles[review.entry_id] ?? t("reviewCardUntitledEntry")}
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    {t("calendarReviewId")}: {review.id.slice(0, 8)}
+                  </p>
                 </div>
                 <div className="text-right text-xs text-muted-foreground">
-                  <p>{new Date(review.scheduled_date).toLocaleTimeString()}</p>
-                  <p>{REVIEW_STATE_LABELS[review.state] ?? "Unknown"}</p>
+                  <p>{new Date(review.scheduled_date).toLocaleTimeString(locale)}</p>
+                  <p>{reviewStateLabels[review.state] ?? t("calendarStateUnknown")}</p>
                 </div>
               </div>
             </article>

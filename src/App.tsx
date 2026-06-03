@@ -8,6 +8,7 @@ import AddEntry from "@/pages/AddEntry";
 import CalendarPage from "@/pages/Calendar";
 import Dashboard from "@/pages/Dashboard";
 import History from "@/pages/History";
+import OnboardingPage from "@/pages/Onboarding";
 import StatsPage from "@/pages/Stats";
 import LoginPage from "@/pages/Auth/LoginPage";
 import ResetPasswordPage from "@/pages/Auth/ResetPasswordPage";
@@ -40,6 +41,7 @@ export default function App() {
       <Route element={<AuthGuard />}>
         <Route path="/" element={<AppLayout />}>
           <Route index element={<Dashboard />} />
+          <Route path="guide" element={<OnboardingPage />} />
           <Route path="add" element={<AddEntry />} />
           <Route path="history" element={<History />} />
           <Route path="calendar" element={<CalendarPage />} />

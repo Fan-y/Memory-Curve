@@ -9,9 +9,15 @@ import {
 
 export type OAuthProvider = "google" | "github";
 
+export type AuthActionCode =
+  | "AUTH_SIGN_UP_EMAIL_VERIFICATION_REQUIRED"
+  | "AUTH_SIGN_UP_SUCCESS"
+  | "AUTH_OAUTH_REDIRECTING"
+  | "AUTH_RESET_PASSWORD_EMAIL_SENT";
+
 export type AuthActionResult = {
   error: string | null;
-  message?: string;
+  code?: AuthActionCode;
 };
 
 type AuthState = {
@@ -125,11 +131,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (!data.session) {
       return {
         error: null,
-        message: "注册成功，请去邮箱点击验证链接后再登录。",
+        code: "AUTH_SIGN_UP_EMAIL_VERIFICATION_REQUIRED",
       };
     }
 
-    return { error: null, message: "注册成功，已自动登录。" };
+    return {
+      error: null,
+      code: "AUTH_SIGN_UP_SUCCESS",
+    };
   },
 
   signInWithOAuth: async (provider: OAuthProvider) => {
@@ -151,7 +160,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     return {
       error: null,
-      message: "正在跳转到第三方登录...",
+      code: "AUTH_OAUTH_REDIRECTING",
     };
   },
 
@@ -186,7 +195,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     return {
       error: null,
-      message: "重置邮件已发送，请到邮箱查看。",
+      code: "AUTH_RESET_PASSWORD_EMAIL_SENT",
     };
   },
 }));

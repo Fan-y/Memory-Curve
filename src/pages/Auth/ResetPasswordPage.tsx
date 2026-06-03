@@ -4,9 +4,11 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { useI18n } from "@/hooks/useI18n";
 import { useAuthStore } from "@/stores/authStore";
 
 export default function ResetPasswordPage() {
+  const { t } = useI18n();
   const resetPassword = useAuthStore((state) => state.resetPassword);
 
   const [email, setEmail] = useState("");
@@ -14,13 +16,13 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  useDocumentTitle("重置密码 - Memory Curve");
+  useDocumentTitle(`${t("resetPasswordTitle")} - Memory Curve`);
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!email) {
-      setError("请先填写邮箱。");
+      setError(t("resetPasswordValidationMissingEmail"));
       return;
     }
 
@@ -37,17 +39,19 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    setMessage(result.message ?? "重置邮件已发送，请到邮箱查看。");
+    if (result.code === "AUTH_RESET_PASSWORD_EMAIL_SENT") {
+      setMessage(t("resetPasswordSuccess"));
+    }
   };
 
   return (
     <div>
-      <h2 className="text-xl font-semibold">重置密码</h2>
-      <p className="mt-1 text-sm text-muted-foreground">输入注册邮箱后，我们会发送重置链接。</p>
+      <h2 className="text-xl font-semibold">{t("resetPasswordHeading")}</h2>
+      <p className="mt-1 text-sm text-muted-foreground">{t("resetPasswordSubtitle")}</p>
 
       <form className="mt-6 space-y-4" onSubmit={onSubmit}>
         <div className="space-y-2">
-          <label className="text-sm font-medium">邮箱</label>
+          <label className="text-sm font-medium">{t("authEmailLabel")}</label>
           <Input
             type="email"
             placeholder="name@example.com"
@@ -60,13 +64,13 @@ export default function ResetPasswordPage() {
         {message ? <p className="text-sm text-emerald-600">{message}</p> : null}
 
         <Button className="w-full" type="submit" disabled={submitting}>
-          {submitting ? "提交中..." : "发送重置邮件"}
+          {submitting ? t("authSubmitting") : t("resetPasswordSubmit")}
         </Button>
       </form>
 
       <div className="mt-4 text-right text-sm">
         <Link className="text-primary hover:underline" to="/auth/login">
-          返回登录
+          {t("authBackToLogin")}
         </Link>
       </div>
     </div>

@@ -4,9 +4,11 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
+import { useI18n } from "@/hooks/useI18n";
 import { useAuthStore } from "@/stores/authStore";
 
 export default function SignUpPage() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const signUp = useAuthStore((state) => state.signUp);
@@ -18,7 +20,7 @@ export default function SignUpPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  useDocumentTitle("注册 - Memory Curve");
+  useDocumentTitle(`${t("signUpTitle")} - Memory Curve`);
 
   useEffect(() => {
     if (user) {
@@ -30,7 +32,7 @@ export default function SignUpPage() {
     event.preventDefault();
 
     if (!email || !password) {
-      setError("请先填写邮箱和密码。");
+      setError(t("signUpValidationMissingCredentials"));
       return;
     }
 
@@ -47,33 +49,36 @@ export default function SignUpPage() {
       return;
     }
 
-    if (result.message) {
-      setMessage(result.message);
+    if (result.code === "AUTH_SIGN_UP_EMAIL_VERIFICATION_REQUIRED") {
+      setMessage(t("signUpSuccessNeedsVerification"));
+      return;
     }
 
-    if (!result.message?.includes("邮箱")) {
+    setMessage(t("signUpSuccessLoggedIn"));
+
+    if (result.code === "AUTH_SIGN_UP_SUCCESS") {
       navigate("/", { replace: true });
     }
   };
 
   return (
     <div>
-      <h2 className="text-xl font-semibold">创建账号</h2>
-      <p className="mt-1 text-sm text-muted-foreground">注册后即可开始使用你的记忆曲线。</p>
+      <h2 className="text-xl font-semibold">{t("signUpHeading")}</h2>
+      <p className="mt-1 text-sm text-muted-foreground">{t("signUpSubtitle")}</p>
 
       <form className="mt-6 space-y-4" onSubmit={onSubmit}>
         <div className="space-y-2">
-          <label className="text-sm font-medium">显示名（可选）</label>
+          <label className="text-sm font-medium">{t("signUpDisplayNameLabel")}</label>
           <Input
             type="text"
-            placeholder="例如：Alex"
+            placeholder={t("signUpDisplayNamePlaceholder")}
             value={displayName}
             onChange={(event) => setDisplayName(event.target.value)}
           />
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">邮箱</label>
+          <label className="text-sm font-medium">{t("authEmailLabel")}</label>
           <Input
             type="email"
             placeholder="name@example.com"
@@ -83,10 +88,10 @@ export default function SignUpPage() {
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">密码</label>
+          <label className="text-sm font-medium">{t("authPasswordLabel")}</label>
           <Input
             type="password"
-            placeholder="至少 6 位"
+            placeholder={t("authPasswordPlaceholder")}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
           />
@@ -96,13 +101,13 @@ export default function SignUpPage() {
         {message ? <p className="text-sm text-emerald-600">{message}</p> : null}
 
         <Button className="w-full" type="submit" disabled={submitting}>
-          {submitting ? "提交中..." : "注册"}
+          {submitting ? t("authSubmitting") : t("signUpSubmit")}
         </Button>
       </form>
 
-      <div className="mt-4 text-right text-sm">
+      <div className="mt-4 flex flex-wrap justify-end gap-1 text-sm">
         <Link className="text-primary hover:underline" to="/auth/login">
-          已有账号？去登录
+          {t("signUpAlreadyHaveAccount")} {t("signUpGoLogin")}
         </Link>
       </div>
     </div>
